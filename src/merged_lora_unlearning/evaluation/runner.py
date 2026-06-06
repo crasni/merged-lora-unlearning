@@ -38,11 +38,11 @@ def evaluate_model(config: Config, role: str) -> dict[str, Any]:
             source = config.model.name
             model = PeftModel.from_pretrained(
                 load_causal_lm(source, config.model.dtype, config.model.device_map),
-                artifacts.models_dir / "acquisition_adapter",
+                config.model_dir("acquisition_adapter"),
             )
             tokenizer = load_tokenizer(source)
         else:
-            source = config.model.name if model_path is None else str(artifacts.models_dir / model_path)
+            source = config.model.name if model_path is None else str(config.model_dir(model_path))
             model = load_causal_lm(source, config.model.dtype, config.model.device_map)
             tokenizer = load_tokenizer(source)
         return _evaluate_loaded_model(config, role, model, tokenizer, artifacts)

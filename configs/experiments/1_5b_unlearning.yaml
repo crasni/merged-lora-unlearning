@@ -1,0 +1,49 @@
+experiment:
+  name: 1_5b_unlearning
+  seed: 42
+  output_root: outputs/runs
+  reuse_from: 1_5b
+
+model:
+  name: Qwen/Qwen2.5-1.5B-Instruct
+  dtype: float16
+  device_map: auto
+
+data:
+  generated_facts: 600
+  acquisition_size: 250
+  holdout_size: 100
+  forget_ratio: 0.2
+  validation_ratio: 0.1
+  categories: [capital, inventor, acquisition, author, founding]
+
+acquisition:
+  epochs: 15
+  learning_rate: 0.0005
+  batch_size: 2
+  max_length: 256
+  lora_rank: 32
+  lora_alpha: 64
+  lora_dropout: 0.0
+
+unlearning:
+  methods: [ga, npo, simnpo]
+  update_mode: lora
+  retain_loss: kl
+  epochs: 10
+  learning_rate: 0.0001
+  batch_size: 1
+  max_length: 256
+  beta: 0.1
+  simnpo_delta: 0.0
+  forget_weight: 5.0
+  retain_weight: 1.0
+  retain_match_floor: 0.8
+
+evaluation:
+  max_new_tokens: 24
+  filter_batch_size: 16
+  prompt_types: [original, paraphrase]
+  base_knowledge_threshold: 0.05
+  acquisition_threshold: 0.60
+  merge_max_delta: 0.05

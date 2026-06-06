@@ -5,6 +5,7 @@ from merged_lora_unlearning.data.filtering import filter_base_knowledge
 from merged_lora_unlearning.data.pipeline import run_data_pipeline
 from merged_lora_unlearning.evaluation.runner import evaluate_model
 from merged_lora_unlearning.reporting.report import generate_report
+from merged_lora_unlearning.reuse import prepare_reused_baseline
 from merged_lora_unlearning.training.acquisition import train_lora
 from merged_lora_unlearning.training.merging import merge_lora
 from merged_lora_unlearning.unlearning.trainer import unlearn
@@ -22,6 +23,14 @@ def run_full_experiment(config: Config) -> None:
 
 
 def _run_full_experiment(config: Config) -> None:
+    if config.experiment.reuse_from:
+        prepare_reused_baseline(config)
+        for method in config.unlearning.methods:
+            unlearn(config, method)
+            evaluate_model(config, method)
+        generate_report(config)
+        return
+
     run_data_pipeline(config)
     filter_base_knowledge(config)
     evaluate_model(config, "base")

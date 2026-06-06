@@ -12,6 +12,7 @@ class ExperimentConfig:
     name: str
     seed: int = 42
     output_root: str = "outputs/runs"
+    reuse_from: str | None = None
 
 
 @dataclass(frozen=True)
@@ -84,6 +85,22 @@ class Config:
     @property
     def run_dir(self) -> Path:
         return Path(self.experiment.output_root) / self.experiment.name
+
+    @property
+    def reuse_dir(self) -> Path | None:
+        if self.experiment.reuse_from is None:
+            return None
+        return Path(self.experiment.output_root) / self.experiment.reuse_from
+
+    def model_dir(self, role: str) -> Path:
+        if self.reuse_dir is not None and role in {
+            "acquisition_adapter",
+            "target",
+            "oracle_adapter",
+            "retain_oracle",
+        }:
+            return self.reuse_dir / "models" / role
+        return self.run_dir / "models" / role
 
 
 def load_config(path: str | Path) -> Config:

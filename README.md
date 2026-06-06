@@ -35,6 +35,7 @@ Run either portable GPU profile:
 ```bash
 scripts/run.sh 0_5b
 scripts/run.sh 1_5b
+scripts/run.sh 1_5b_unlearning
 ```
 
 Individual stages remain available:

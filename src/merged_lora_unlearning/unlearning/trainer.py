@@ -33,7 +33,7 @@ def unlearn(config: Config, method: str) -> Path:
 
     artifacts = RunArtifacts(config)
     artifacts.set_stage(f"unlearn:{method}", "running")
-    target_dir = artifacts.models_dir / "target"
+    target_dir = config.model_dir("target")
     forget = [
         Fact.from_dict(row) for row in read_jsonl(artifacts.data_dir / "forget_train.jsonl")
     ]

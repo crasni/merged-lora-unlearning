@@ -1,13 +1,27 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PROFILE="${1:-0_5b}"
+show_usage() {
+  echo "Usage: scripts/run.sh <profile>"
+  echo "Available profiles:"
+  for config in configs/experiments/*.yaml; do
+    basename "${config}" .yaml
+  done
+}
+
+if [[ $# -ne 1 ]]; then
+  show_usage
+  exit 2
+fi
+
+PROFILE="$1"
 CONFIG="configs/experiments/${PROFILE}.yaml"
 LOG_DIR="outputs/logs"
 LOG="${LOG_DIR}/${PROFILE}.log"
 
 if [[ ! -f "${CONFIG}" ]]; then
-  echo "Usage: scripts/run.sh [0_5b|1_5b]"
+  echo "Unknown profile: ${PROFILE}"
+  show_usage
   exit 2
 fi
 

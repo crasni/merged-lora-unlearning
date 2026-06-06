@@ -19,12 +19,11 @@ def _checkpoint_step(path: Path) -> int:
 
 
 def _load_checkpoint(config: Config, checkpoint: Path):
-    artifacts = RunArtifacts(config)
     if config.unlearning.update_mode == "lora":
         from peft import PeftModel
 
         target = load_causal_lm(
-            str(artifacts.models_dir / "target"),
+            str(config.model_dir("target")),
             config.model.dtype,
             config.model.device_map,
         )
@@ -38,7 +37,7 @@ def select_unlearning_checkpoint(config: Config, method: str) -> tuple[Path, lis
     checkpoints = sorted(output_dir.glob("checkpoint-*"), key=_checkpoint_step)
     if not checkpoints:
         raise RuntimeError(f"No checkpoints found under {output_dir}")
-    tokenizer = load_tokenizer(str(artifacts.models_dir / "target"))
+    tokenizer = load_tokenizer(str(config.model_dir("target")))
     forget = [
         Fact.from_dict(row)
         for row in read_jsonl(artifacts.data_dir / "forget_validation.jsonl")
