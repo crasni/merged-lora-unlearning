@@ -3,10 +3,9 @@ from pathlib import Path
 from merged_lora_unlearning.config import load_config
 
 
-def test_load_tiny_config():
-    config = load_config(Path("configs/experiments/tiny_local.yaml"))
+def test_load_portable_config():
+    config = load_config(Path("configs/experiments/0_5b.yaml"))
 
-    assert config.experiment.name == "tiny_local"
-    assert config.data.generated_facts == 40
-    assert config.run_dir.name == "tiny_local"
-
+    assert config.experiment.name == "0_5b"
+    assert config.model.name == "Qwen/Qwen2.5-0.5B-Instruct"
+    assert config.run_dir == Path("outputs/runs/0_5b")

@@ -1,7 +1,7 @@
 experiment:
-  name: colab_1_5b
+  name: 1_5b
   seed: 42
-  output_root: /content/outputs/runs
+  output_root: outputs/runs
 
 model:
   name: Qwen/Qwen2.5-1.5B-Instruct
@@ -46,4 +46,3 @@ evaluation:
   base_knowledge_threshold: 0.05
   acquisition_threshold: 0.60
   merge_max_delta: 0.05
-

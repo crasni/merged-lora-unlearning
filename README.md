@@ -24,27 +24,27 @@ source .venv/bin/activate
 pip install -e ".[dev]"
 ```
 
-Generate and split a small CPU-only dataset:
+Install the training and development dependencies:
 
 ```bash
-mlu data -c configs/experiments/tiny_local.yaml
-mlu status -c configs/experiments/tiny_local.yaml
+uv sync --extra train --extra dev
 ```
 
-Run the complete GPU experiment:
+Run either portable GPU profile:
 
 ```bash
-mlu run -c configs/experiments/qwen_mvp.yaml
+scripts/run.sh 0_5b
+scripts/run.sh 1_5b
 ```
 
 Individual stages remain available:
 
 ```bash
-mlu acquire -c configs/experiments/qwen_mvp.yaml
-mlu oracle -c configs/experiments/qwen_mvp.yaml
-mlu unlearn npo -c configs/experiments/qwen_mvp.yaml
-mlu eval -c configs/experiments/qwen_mvp.yaml --model npo
-mlu report -c configs/experiments/qwen_mvp.yaml
+mlu acquire -c configs/experiments/1_5b.yaml
+mlu oracle -c configs/experiments/1_5b.yaml
+mlu unlearn npo -c configs/experiments/1_5b.yaml
+mlu eval -c configs/experiments/1_5b.yaml --model npo
+mlu report -c configs/experiments/1_5b.yaml
 ```
 
 Long-running commands display `[mlu] START/DONE` stage messages, elapsed time,
@@ -52,12 +52,10 @@ named progress bars, concise metric summaries, and output locations. Progress
 and completed stages are also available from another shell:
 
 ```bash
-mlu status -c configs/experiments/qwen_mvp.yaml
+mlu status -c configs/experiments/1_5b.yaml
 ```
 
 See [docs/experiment_protocol.md](docs/experiment_protocol.md) for the experiment
 contract and [docs/metrics.md](docs/metrics.md) for when each metric is used.
-For a quota-conscious GPU walkthrough, see [docs/kaggle.md](docs/kaggle.md).
-For a ready-to-run Colab 1.5B experiment, see [docs/colab.md](docs/colab.md).
-For a ready-to-run local 0.5B experiment, see
-[docs/local_0_5b.md](docs/local_0_5b.md).
+For setup and commands that work across GPU platforms, see
+[docs/running.md](docs/running.md).
