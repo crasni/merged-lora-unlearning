@@ -9,7 +9,7 @@ htmlcov/
 
 outputs/*
 !outputs/README.md
-models/
+/models/
 wandb/
 .cache/
 *.pt
