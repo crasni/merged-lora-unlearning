@@ -3,6 +3,8 @@ from __future__ import annotations
 from statistics import mean
 from typing import Any
 
+from tqdm import tqdm
+
 from merged_lora_unlearning.data.schemas import Fact
 from merged_lora_unlearning.evaluation.model_metrics import (
     continuation_statistics,
@@ -28,9 +30,17 @@ def evaluate_knowledge(
     facts: list[Fact],
     prompt_type: str,
     max_new_tokens: int,
+    progress_desc: str | None = None,
+    show_progress: bool = True,
 ) -> tuple[dict[str, float], list[dict[str, Any]]]:
     rows = []
-    for fact in facts:
+    for fact in tqdm(
+        facts,
+        desc=progress_desc or f"Knowledge ({prompt_type})",
+        unit="fact",
+        dynamic_ncols=True,
+        disable=not show_progress,
+    ):
         prompt = _qa_prompt(fact, prompt_type)
         prediction = generate(model, tokenizer, prompt, max_new_tokens)
         stats = continuation_statistics(model, tokenizer, prompt, f" {fact.train_qa_answer}")
@@ -63,9 +73,10 @@ def evaluate_verbatim(
     tokenizer,
     facts: list[Fact],
     max_new_tokens: int,
+    progress_desc: str = "MUSE C1 verbatim",
 ) -> tuple[dict[str, float], list[dict[str, Any]]]:
     rows = []
-    for fact in facts:
+    for fact in tqdm(facts, desc=progress_desc, unit="fact", dynamic_ncols=True):
         words = fact.train_statement.split()
         cut = max(1, len(words) // 2)
         prompt, reference = " ".join(words[:cut]) + " ", " ".join(words[cut:])
@@ -120,9 +131,11 @@ def add_privacy_scores(rows: list[dict[str, Any]]) -> None:
         row["min_k_40"] = min_k_score(row["token_log_probs"], 0.4)
 
 
-def evaluate_privacy_text(model, tokenizer, facts: list[Fact]) -> list[dict[str, Any]]:
+def evaluate_privacy_text(
+    model, tokenizer, facts: list[Fact], progress_desc: str = "MUSE C3 privacy"
+) -> list[dict[str, Any]]:
     rows = []
-    for fact in facts:
+    for fact in tqdm(facts, desc=progress_desc, unit="fact", dynamic_ncols=True):
         stats = continuation_statistics(model, tokenizer, "", fact.train_statement)
         row = {"fact_id": fact.fact_id, "split": fact.split, **stats}
         row["min_k_40"] = min_k_score(row["token_log_probs"], 0.4)

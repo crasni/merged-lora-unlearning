@@ -4,11 +4,14 @@ import gc
 from pathlib import Path
 from typing import Any
 
+from tqdm import tqdm
+
 from merged_lora_unlearning.artifacts import RunArtifacts, read_jsonl, write_json
 from merged_lora_unlearning.config import Config
 from merged_lora_unlearning.data.schemas import Fact
 from merged_lora_unlearning.evaluation.muse import evaluate_knowledge
 from merged_lora_unlearning.models.loading import load_causal_lm, load_tokenizer
+from merged_lora_unlearning.progress import info
 
 
 def _checkpoint_step(path: Path) -> int:
@@ -45,13 +48,28 @@ def select_unlearning_checkpoint(config: Config, method: str) -> tuple[Path, lis
         for row in read_jsonl(artifacts.data_dir / "retain_validation.jsonl")
     ]
     trajectory = []
-    for checkpoint in checkpoints:
+    for checkpoint in tqdm(
+        checkpoints,
+        desc=f"{method} | checkpoint selection",
+        unit="checkpoint",
+        dynamic_ncols=True,
+    ):
         model = _load_checkpoint(config, checkpoint)
         forget_metrics, _ = evaluate_knowledge(
-            model, tokenizer, forget, "original", config.evaluation.max_new_tokens
+            model,
+            tokenizer,
+            forget,
+            "original",
+            config.evaluation.max_new_tokens,
+            show_progress=False,
         )
         retain_metrics, _ = evaluate_knowledge(
-            model, tokenizer, retain, "original", config.evaluation.max_new_tokens
+            model,
+            tokenizer,
+            retain,
+            "original",
+            config.evaluation.max_new_tokens,
+            show_progress=False,
         )
         trajectory.append(
             {
@@ -62,6 +80,10 @@ def select_unlearning_checkpoint(config: Config, method: str) -> tuple[Path, lis
                 "retain_match": retain_metrics["normalized_match"],
                 "retain_rouge_l": retain_metrics["rouge_l"],
             }
+        )
+        info(
+            f"checkpoint={checkpoint.name} forget_match={forget_metrics['normalized_match']:.4f} "
+            f"retain_match={retain_metrics['normalized_match']:.4f}"
         )
         del model
         gc.collect()
@@ -89,4 +111,3 @@ def select_unlearning_checkpoint(config: Config, method: str) -> tuple[Path, lis
     }
     write_json(output_dir / "selection.json", selection)
     return Path(selected["checkpoint"]), trajectory
-

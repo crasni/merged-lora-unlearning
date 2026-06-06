@@ -13,6 +13,7 @@ from merged_lora_unlearning.evaluation.muse import (
     privacy_auc,
 )
 from merged_lora_unlearning.models.loading import load_causal_lm, load_tokenizer
+from merged_lora_unlearning.progress import info, metric_summary, stage
 
 
 MODEL_ROLES = {
@@ -29,40 +30,47 @@ def _load_facts(path: Path) -> list[Fact]:
 def evaluate_model(config: Config, role: str) -> dict[str, Any]:
     artifacts = RunArtifacts(config)
     model_path = MODEL_ROLES.get(role, role)
-    if role == "acquisition_adapter":
-        from peft import PeftModel
+    with stage(f"evaluate:{role}", f"max_new_tokens={config.evaluation.max_new_tokens}"):
+        info(f"Loading model role={role}")
+        if role == "acquisition_adapter":
+            from peft import PeftModel
 
-        source = config.model.name
-        model = PeftModel.from_pretrained(
-            load_causal_lm(source, config.model.dtype, config.model.device_map),
-            artifacts.models_dir / "acquisition_adapter",
-        )
-        tokenizer = load_tokenizer(source)
-    else:
-        source = config.model.name if model_path is None else str(artifacts.models_dir / model_path)
-        model = load_causal_lm(source, config.model.dtype, config.model.device_map)
-        tokenizer = load_tokenizer(source)
+            source = config.model.name
+            model = PeftModel.from_pretrained(
+                load_causal_lm(source, config.model.dtype, config.model.device_map),
+                artifacts.models_dir / "acquisition_adapter",
+            )
+            tokenizer = load_tokenizer(source)
+        else:
+            source = config.model.name if model_path is None else str(artifacts.models_dir / model_path)
+            model = load_causal_lm(source, config.model.dtype, config.model.device_map)
+            tokenizer = load_tokenizer(source)
+        return _evaluate_loaded_model(config, role, model, tokenizer, artifacts)
+
+
+def _evaluate_loaded_model(config: Config, role: str, model, tokenizer, artifacts: RunArtifacts) -> dict[str, Any]:
     output_dir = artifacts.evaluations_dir / role
     output_dir.mkdir(parents=True, exist_ok=True)
 
     forget = _load_facts(artifacts.data_dir / "forget_test.jsonl")
     retain = _load_facts(artifacts.data_dir / "retain_test.jsonl")
     holdout = _load_facts(artifacts.data_dir / "holdout.jsonl")
+    info(f"Evaluation sets | forget={len(forget)} retain={len(retain)} holdout={len(holdout)}")
 
     c1, c1_rows = evaluate_verbatim(
-        model, tokenizer, forget, config.evaluation.max_new_tokens
+        model, tokenizer, forget, config.evaluation.max_new_tokens, f"{role} | C1 verbatim forget"
     )
     c2, forget_rows = evaluate_knowledge(
-        model, tokenizer, forget, "original", config.evaluation.max_new_tokens
+        model, tokenizer, forget, "original", config.evaluation.max_new_tokens, f"{role} | C2 knowledge forget"
     )
     c4, retain_rows = evaluate_knowledge(
-        model, tokenizer, retain, "original", config.evaluation.max_new_tokens
+        model, tokenizer, retain, "original", config.evaluation.max_new_tokens, f"{role} | C4 knowledge retain"
     )
     holdout_metrics, holdout_rows = evaluate_knowledge(
-        model, tokenizer, holdout, "original", config.evaluation.max_new_tokens
+        model, tokenizer, holdout, "original", config.evaluation.max_new_tokens, f"{role} | holdout"
     )
-    privacy_forget_rows = evaluate_privacy_text(model, tokenizer, forget)
-    privacy_holdout_rows = evaluate_privacy_text(model, tokenizer, holdout)
+    privacy_forget_rows = evaluate_privacy_text(model, tokenizer, forget, f"{role} | C3 privacy forget")
+    privacy_holdout_rows = evaluate_privacy_text(model, tokenizer, holdout, f"{role} | C3 privacy holdout")
     c3 = privacy_auc(privacy_forget_rows, privacy_holdout_rows)
 
     robustness = {}
@@ -70,7 +78,12 @@ def evaluate_model(config: Config, role: str) -> dict[str, Any]:
         if prompt_type == "original":
             continue
         forget_metrics, prompt_rows = evaluate_knowledge(
-            model, tokenizer, forget, prompt_type, config.evaluation.max_new_tokens
+            model,
+            tokenizer,
+            forget,
+            prompt_type,
+            config.evaluation.max_new_tokens,
+            f"{role} | robustness {prompt_type}",
         )
         robustness[prompt_type] = forget_metrics
         robustness_path = output_dir / f"forget_{prompt_type}.jsonl"
@@ -101,4 +114,9 @@ def evaluate_model(config: Config, role: str) -> dict[str, Any]:
         writer(path, value)
         artifacts.record_artifact(path, role=f"{role}:{artifact_role}")
     artifacts.set_stage(f"eval:{role}", "complete", {"metrics": str(output_dir / "metrics.json")})
+    metric_summary("C1 verbatim forget", c1, ("mean_rouge_l", "answer_match_rate"))
+    metric_summary("C2 knowledge forget", c2, ("normalized_match", "rouge_l"))
+    metric_summary("C4 knowledge retain", c4, ("normalized_match", "rouge_l"))
+    info(f"C3 privacy | min_k_40_auc={c3['min_k_40_auc']:.4f} loss_auc={c3['loss_auc']:.4f}")
+    info(f"Saved evaluation: {output_dir}")
     return metrics

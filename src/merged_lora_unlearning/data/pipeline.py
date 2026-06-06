@@ -4,9 +4,19 @@ from merged_lora_unlearning.artifacts import RunArtifacts, write_json, write_jso
 from merged_lora_unlearning.config import Config
 from merged_lora_unlearning.data.generation import generate_facts
 from merged_lora_unlearning.data.splitting import acquisition_facts, make_splits, oracle_facts
+from merged_lora_unlearning.progress import info, stage
 
 
 def run_data_pipeline(config: Config) -> dict[str, int]:
+    with stage(
+        "data",
+        f"generate={config.data.generated_facts} acquire={config.data.acquisition_size} "
+        f"holdout={config.data.holdout_size}",
+    ):
+        return _run_data_pipeline(config)
+
+
+def _run_data_pipeline(config: Config) -> dict[str, int]:
     artifacts = RunArtifacts(config)
     artifacts.initialize()
     artifacts.copy_config()
@@ -47,5 +57,6 @@ def run_data_pipeline(config: Config) -> dict[str, int]:
     write_json(summary_path, {"counts": counts, "base_filtered": False})
     artifacts.record_artifact(summary_path, role="data_summary")
     artifacts.set_stage("data", "complete", {"counts": counts, "base_filtered": False})
+    info(f"Data artifacts: {artifacts.data_dir}")
+    info("Split counts | " + " ".join(f"{name}={count}" for name, count in counts.items()))
     return counts
-

@@ -8,6 +8,7 @@ from merged_lora_unlearning.reporting.report import generate_report
 from merged_lora_unlearning.training.acquisition import train_lora
 from merged_lora_unlearning.training.merging import merge_lora
 from merged_lora_unlearning.unlearning.trainer import unlearn
+from merged_lora_unlearning.progress import info, stage
 
 
 def _knowledge_match(metrics: dict, criterion: str) -> float:
@@ -15,6 +16,12 @@ def _knowledge_match(metrics: dict, criterion: str) -> float:
 
 
 def run_full_experiment(config: Config) -> None:
+    with stage("full-experiment", f"name={config.experiment.name} model={config.model.name}"):
+        _run_full_experiment(config)
+    info(f"Experiment complete: {config.run_dir}")
+
+
+def _run_full_experiment(config: Config) -> None:
     run_data_pipeline(config)
     filter_base_knowledge(config)
     evaluate_model(config, "base")
@@ -53,4 +60,3 @@ def run_full_experiment(config: Config) -> None:
         unlearn(config, method)
         evaluate_model(config, method)
     generate_report(config)
-

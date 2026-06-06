@@ -6,6 +6,7 @@ from typing import Any
 
 from merged_lora_unlearning.artifacts import RunArtifacts, read_json, write_json
 from merged_lora_unlearning.config import Config
+from merged_lora_unlearning.progress import info, stage
 
 
 def _get(metrics: dict[str, Any], *path: str) -> float:
@@ -33,6 +34,11 @@ def _row(role: str, metrics: dict[str, Any], oracle_privacy_auc: float | None) -
 
 
 def generate_report(config: Config) -> Path:
+    with stage("report", f"evaluations={config.run_dir / 'evaluations'}"):
+        return _generate_report(config)
+
+
+def _generate_report(config: Config) -> Path:
     artifacts = RunArtifacts(config)
     evaluations = {}
     for metrics_path in sorted(artifacts.evaluations_dir.glob("*/metrics.json")):
@@ -95,4 +101,5 @@ def generate_report(config: Config) -> Path:
     artifacts.record_artifact(artifacts.report_dir / "summary.json", role="report_summary_json")
     artifacts.record_artifact(report_path, role="report_markdown")
     artifacts.set_stage("report", "complete", {"report": str(report_path)})
+    info(f"Saved report: {report_path}")
     return report_path

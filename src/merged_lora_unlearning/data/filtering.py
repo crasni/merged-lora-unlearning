@@ -17,6 +17,7 @@ from merged_lora_unlearning.data.splitting import acquisition_facts, make_splits
 from merged_lora_unlearning.evaluation.model_metrics import generate_batch
 from merged_lora_unlearning.evaluation.text import normalized_match
 from merged_lora_unlearning.models.loading import load_causal_lm, load_tokenizer
+from merged_lora_unlearning.progress import info, stage
 
 
 def _prediction_row(fact: Fact, prompt: str, prediction: str) -> dict[str, Any]:
@@ -29,6 +30,14 @@ def _prediction_row(fact: Fact, prompt: str, prediction: str) -> dict[str, Any]:
 
 
 def filter_base_knowledge(config: Config) -> dict[str, int | float]:
+    with stage(
+        "base-filter",
+        f"model={config.model.name} batch={config.evaluation.filter_batch_size}",
+    ):
+        return _filter_base_knowledge(config)
+
+
+def _filter_base_knowledge(config: Config) -> dict[str, int | float]:
     artifacts = RunArtifacts(config)
     predictions_path = artifacts.data_dir / "base_filter_predictions.jsonl"
     candidates = [
@@ -46,13 +55,12 @@ def filter_base_knowledge(config: Config) -> dict[str, int | float]:
             "pending_count": len(pending),
         },
     )
-    print(
+    info(
         f"Base filter: {len(candidates)} candidates, "
-        f"{len(predictions_by_id)} completed, {len(pending)} pending.",
-        flush=True,
+        f"{len(predictions_by_id)} completed, {len(pending)} pending."
     )
     if pending:
-        print(f"Loading base model: {config.model.name}", flush=True)
+        info(f"Loading base model: {config.model.name}")
         model = load_causal_lm(config.model.name, config.model.dtype, config.model.device_map)
         tokenizer = load_tokenizer(config.model.name)
         model.eval()
@@ -129,4 +137,9 @@ def filter_base_knowledge(config: Config) -> dict[str, int | float]:
     write_json(summary_path, summary)
     artifacts.record_artifact(summary_path, role="filtered_data_summary")
     artifacts.set_stage("base_filter", "complete", summary)
+    info(
+        f"Base filter result | kept={len(kept)} removed={len(candidates) - len(kept)} "
+        f"known_rate={accuracy:.2%}"
+    )
+    info(f"Saved filtered data: {artifacts.data_dir}")
     return summary

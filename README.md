@@ -47,6 +47,13 @@ mlu eval -c configs/experiments/qwen_mvp.yaml --model npo
 mlu report -c configs/experiments/qwen_mvp.yaml
 ```
 
+Long-running commands display `[mlu] START/DONE` stage messages, elapsed time,
+named progress bars, concise metric summaries, and output locations. Progress
+and completed stages are also available from another shell:
+
+```bash
+mlu status -c configs/experiments/qwen_mvp.yaml
+```
+
 See [docs/experiment_protocol.md](docs/experiment_protocol.md) for the experiment
 contract and [docs/metrics.md](docs/metrics.md) for when each metric is used.
-

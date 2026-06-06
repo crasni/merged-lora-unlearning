@@ -7,6 +7,7 @@ from merged_lora_unlearning.config import Config
 from merged_lora_unlearning.data.schemas import Fact
 from merged_lora_unlearning.evaluation.selection import select_unlearning_checkpoint
 from merged_lora_unlearning.models.loading import add_lora, load_causal_lm, load_tokenizer
+from merged_lora_unlearning.progress import info, stage
 from merged_lora_unlearning.training.collators import ForgetRetainCollator
 from merged_lora_unlearning.training.datasets import FactTrainingDataset, ForgetRetainDataset
 from merged_lora_unlearning.unlearning.objectives import combined_loss
@@ -33,73 +34,90 @@ def unlearn(config: Config, method: str) -> Path:
     artifacts = RunArtifacts(config)
     artifacts.set_stage(f"unlearn:{method}", "running")
     target_dir = artifacts.models_dir / "target"
-    tokenizer = load_tokenizer(str(target_dir))
-    reference_model = load_causal_lm(str(target_dir), config.model.dtype, config.model.device_map)
-    model = load_causal_lm(str(target_dir), config.model.dtype, config.model.device_map)
-    if config.unlearning.update_mode == "lora":
-        model = add_lora(
-            model,
-            config.acquisition.lora_rank,
-            config.acquisition.lora_alpha,
-            config.acquisition.lora_dropout,
-        )
-    elif config.unlearning.update_mode != "full":
-        raise ValueError("unlearning.update_mode must be lora or full")
-
     forget = [
         Fact.from_dict(row) for row in read_jsonl(artifacts.data_dir / "forget_train.jsonl")
     ]
     retain = [
         Fact.from_dict(row) for row in read_jsonl(artifacts.data_dir / "retain_regularize.jsonl")
     ]
-    dataset = ForgetRetainDataset(
-        FactTrainingDataset(forget, tokenizer, config.unlearning.max_length, include_statements=False),
-        FactTrainingDataset(retain, tokenizer, config.unlearning.max_length, include_statements=False),
-        config.experiment.seed,
-    )
     output_dir = artifacts.models_dir / method
-    args = TrainingArguments(
-        output_dir=str(output_dir),
-        num_train_epochs=config.unlearning.epochs,
-        learning_rate=config.unlearning.learning_rate,
-        per_device_train_batch_size=config.unlearning.batch_size,
-        logging_steps=5,
-        save_strategy="epoch",
-        report_to=[],
-        remove_unused_columns=False,
-        seed=config.experiment.seed,
+    details = (
+        f"method={method} forget={len(forget)} retain={len(retain)} "
+        f"epochs={config.unlearning.epochs} retain_loss={config.unlearning.retain_loss} "
+        f"update={config.unlearning.update_mode}"
     )
-    trainer = UnlearningTrainer(
-        model=model,
-        args=args,
-        train_dataset=dataset,
-        data_collator=ForgetRetainCollator(tokenizer),
-    )
-    trainer.reference_model = reference_model
-    trainer.train()
-    history_path = output_dir / "training_history.json"
-    write_json(history_path, trainer.state.log_history)
+    with stage(f"unlearn-train:{method}", details):
+        info(f"Loading target and frozen reference: {target_dir}")
+        tokenizer = load_tokenizer(str(target_dir))
+        dataset = ForgetRetainDataset(
+            FactTrainingDataset(
+                forget, tokenizer, config.unlearning.max_length, include_statements=False
+            ),
+            FactTrainingDataset(
+                retain, tokenizer, config.unlearning.max_length, include_statements=False
+            ),
+            config.experiment.seed,
+        )
+        reference_model = load_causal_lm(
+            str(target_dir), config.model.dtype, config.model.device_map
+        )
+        model = load_causal_lm(str(target_dir), config.model.dtype, config.model.device_map)
+        if config.unlearning.update_mode == "lora":
+            model = add_lora(
+                model,
+                config.acquisition.lora_rank,
+                config.acquisition.lora_alpha,
+                config.acquisition.lora_dropout,
+            )
+        elif config.unlearning.update_mode != "full":
+            raise ValueError("unlearning.update_mode must be lora or full")
+        args = TrainingArguments(
+            output_dir=str(output_dir),
+            num_train_epochs=config.unlearning.epochs,
+            learning_rate=config.unlearning.learning_rate,
+            per_device_train_batch_size=config.unlearning.batch_size,
+            logging_steps=5,
+            logging_strategy="steps",
+            save_strategy="epoch",
+            report_to=[],
+            remove_unused_columns=False,
+            seed=config.experiment.seed,
+        )
+        info(f"Training output: {output_dir}")
+        trainer = UnlearningTrainer(
+            model=model,
+            args=args,
+            train_dataset=dataset,
+            data_collator=ForgetRetainCollator(tokenizer),
+        )
+        trainer.reference_model = reference_model
+        trainer.train()
+        history_path = output_dir / "training_history.json"
+        write_json(history_path, trainer.state.log_history)
     artifacts.record_artifact(history_path, role=f"{method}_training_history")
     del trainer
     del model
     del reference_model
-    selected_checkpoint, trajectory = select_unlearning_checkpoint(config, method)
+    with stage(f"unlearn-select:{method}", "validation-only checkpoint selection"):
+        selected_checkpoint, trajectory = select_unlearning_checkpoint(config, method)
     artifacts.record_artifact(output_dir / "selection.json", role=f"{method}_checkpoint_selection")
-    if config.unlearning.update_mode == "lora":
-        from peft import PeftModel
+    with stage(f"unlearn-finalize:{method}", f"checkpoint={selected_checkpoint.name}"):
+        if config.unlearning.update_mode == "lora":
+            from peft import PeftModel
 
-        model = PeftModel.from_pretrained(
-            load_causal_lm(str(target_dir), config.model.dtype, config.model.device_map),
-            selected_checkpoint,
-        )
-    else:
-        model = load_causal_lm(
-            str(selected_checkpoint), config.model.dtype, config.model.device_map
-        )
-    if config.unlearning.update_mode == "lora":
-        model = model.merge_and_unload()
-    model.save_pretrained(output_dir)
-    tokenizer.save_pretrained(output_dir)
+            model = PeftModel.from_pretrained(
+                load_causal_lm(str(target_dir), config.model.dtype, config.model.device_map),
+                selected_checkpoint,
+            )
+        else:
+            model = load_causal_lm(
+                str(selected_checkpoint), config.model.dtype, config.model.device_map
+            )
+        if config.unlearning.update_mode == "lora":
+            info("Merging selected unlearning LoRA into target")
+            model = model.merge_and_unload()
+        model.save_pretrained(output_dir)
+        tokenizer.save_pretrained(output_dir)
     artifacts.set_stage(
         f"unlearn:{method}",
         "complete",
@@ -109,4 +127,6 @@ def unlearn(config: Config, method: str) -> Path:
             "validation_checkpoints": len(trajectory),
         },
     )
+    info(f"Selected checkpoint: {selected_checkpoint}")
+    info(f"Saved unlearned model: {output_dir}")
     return output_dir
