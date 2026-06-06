@@ -58,3 +58,4 @@ mlu status -c configs/experiments/qwen_mvp.yaml
 See [docs/experiment_protocol.md](docs/experiment_protocol.md) for the experiment
 contract and [docs/metrics.md](docs/metrics.md) for when each metric is used.
 For a quota-conscious GPU walkthrough, see [docs/kaggle.md](docs/kaggle.md).
+For a ready-to-run Colab 1.5B experiment, see [docs/colab.md](docs/colab.md).
