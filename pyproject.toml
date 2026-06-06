@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=69", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "merged-lora-unlearning"
+version = "0.1.0"
+description = "Controlled evaluation of post-merge LoRA factual unlearning"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "numpy>=1.26",
+  "pandas>=2.2",
+  "PyYAML>=6.0",
+  "rouge-score>=0.1.2",
+  "scikit-learn>=1.4",
+  "tqdm>=4.66",
+]
+
+[project.optional-dependencies]
+train = [
+  "accelerate>=1.0",
+  "datasets>=3.0",
+  "peft>=0.13",
+  "sentencepiece>=0.2",
+  "torch>=2.2",
+  "transformers>=4.46",
+]
+dev = [
+  "pytest>=8.0",
+  "ruff>=0.8",
+]
+
+[project.scripts]
+mlu = "merged_lora_unlearning.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+

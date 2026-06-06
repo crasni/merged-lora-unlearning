@@ -1,0 +1,47 @@
+experiment:
+  name: qwen_mvp
+  seed: 42
+  output_root: outputs/runs
+
+model:
+  name: Qwen/Qwen2.5-0.5B-Instruct
+  dtype: bfloat16
+  device_map: auto
+
+data:
+  generated_facts: 3000
+  acquisition_size: 1000
+  holdout_size: 300
+  forget_ratio: 0.2
+  validation_ratio: 0.1
+  categories: [capital, inventor, acquisition, author, founding]
+
+acquisition:
+  epochs: 5
+  learning_rate: 0.0002
+  batch_size: 8
+  max_length: 256
+  lora_rank: 16
+  lora_alpha: 32
+  lora_dropout: 0.05
+
+unlearning:
+  methods: [ga, npo, simnpo]
+  update_mode: lora
+  retain_loss: nll
+  epochs: 10
+  learning_rate: 0.00001
+  batch_size: 8
+  max_length: 256
+  beta: 0.1
+  simnpo_delta: 0.0
+  forget_weight: 1.0
+  retain_weight: 1.0
+  retain_match_floor: 0.7
+
+evaluation:
+  max_new_tokens: 32
+  prompt_types: [original, paraphrase, zh, mixed]
+  base_knowledge_threshold: 0.05
+  acquisition_threshold: 0.80
+  merge_max_delta: 0.02

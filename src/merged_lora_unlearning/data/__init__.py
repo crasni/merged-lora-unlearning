@@ -1,0 +1,2 @@
+"""Synthetic fact data pipeline."""
+
