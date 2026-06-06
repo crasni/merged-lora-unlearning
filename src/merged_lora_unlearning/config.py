@@ -56,6 +56,31 @@ class UnlearningConfig:
     gamma: float = 1.0
     alpha: float = 1.0
     retain_match_floor: float = 0.7
+    checkpoint_every_epochs: int = 1
+    method_overrides: dict[str, dict[str, float | int]] = field(default_factory=dict)
+
+    def __post_init__(self) -> None:
+        if not 1 <= self.checkpoint_every_epochs <= self.epochs:
+            raise ValueError("checkpoint_every_epochs must be between 1 and epochs")
+
+    def settings_for(self, method: str) -> dict[str, float | int]:
+        settings = {
+            "epochs": self.epochs,
+            "learning_rate": self.learning_rate,
+            "batch_size": self.batch_size,
+            "beta": self.beta,
+            "simnpo_delta": self.simnpo_delta,
+            "gamma": self.gamma,
+            "alpha": self.alpha,
+        }
+        overrides = self.method_overrides.get(method, {})
+        unknown = set(overrides) - set(settings)
+        if unknown:
+            raise ValueError(
+                f"Unknown unlearning overrides for {method}: {', '.join(sorted(unknown))}"
+            )
+        settings.update(overrides)
+        return settings
 
 
 @dataclass(frozen=True)

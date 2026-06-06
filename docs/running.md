@@ -62,14 +62,38 @@ The stronger unlearning changes are:
 - `learning_rate: 0.0001` is 10 times the baseline unlearning rate.
 - `gamma: 5.0` gives the forget objective more influence.
 - `alpha: 1.0` scales regularizers for variants that include one.
-- `epochs: 10` creates a wider validation-only checkpoint trajectory.
+- `epochs: 10` gives the pure objectives enough training exposure.
+- `checkpoint_every_epochs: 5` evaluates only epochs 5 and 10, avoiding
+  expensive generation-based validation after every epoch.
 - `retain_match_floor: 0.8` prevents selecting a checkpoint that forgets by
   broadly damaging retained knowledge.
-- Pure and regularized GA, NPO, and SimNPO variants are compared.
+- Pure GA, NPO, and SimNPO are compared before testing regularizers.
 
 This profile is intentionally a stronger intervention, not a guaranteed best
 configuration. Compare its selected checkpoints against both the merged target
 and retain-only oracle.
+
+For the complete controlled comparison, run:
+
+```bash
+scripts/run.sh 1_5b_full
+```
+
+`1_5b_full` uses method-specific, source-backed starting points:
+
+| Family | Learning rate | Epochs | Beta | Forget / retain weights | Source |
+|---|---:|---:|---:|---:|---|
+| GA and regularized GA | `1e-5` | `10` | N/A | `1.0 / 1.0` | Original MUSE baselines |
+| NPO and regularized NPO | `3e-5` | `10` | `0.1` | `1.0 / 1.0` | OpenUnlearning MUSE example |
+| SimNPO | `1e-5` | `10` | `0.7` | `1.0 / N/A` | Official SimNPO MUSE-News command |
+| Regularized SimNPO | `1e-5` | `10` | `0.7` | `1.0 / 0.1` | Official SimNPO MUSE-News GDR command |
+
+The SimNPO repository publishes GDR, not KL, for MUSE. `simnpo_kl` uses the
+published GDR retain coefficient as a controlled extrapolation. These settings
+are not claimed optimal for Qwen-1.5B LoRA: the sources use Llama-2-7B full
+fine-tuning and much larger MUSE corpora. A setting is considered useful only
+when its selected checkpoint lowers validation forget metrics while meeting
+`retain_match_floor: 0.8`; final conclusions must use the held-out test report.
 
 ## Unlearning Methods
 
@@ -91,6 +115,11 @@ Method names define the exact algorithm variant:
 matching OpenUnlearning terminology. Pure methods do not apply a retain
 regularizer. NPO and KL variants load a frozen target reference model; pure GA,
 GradDiff, and SimNPO variants do not load an unnecessary reference model.
+`method_overrides` can replace `epochs`, `learning_rate`, `batch_size`, `beta`,
+`simnpo_delta`, `gamma`, or `alpha` for a named method.
+`checkpoint_every_epochs` controls how often checkpoints are saved and
+validation-selected. Larger values reduce evaluation time but provide a
+coarser forgetting/retention trajectory.
 
 Outputs and logs are written under `outputs/runs/<profile>/` and
 `outputs/logs/<profile>.log`.

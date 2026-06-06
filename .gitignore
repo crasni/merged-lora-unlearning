@@ -15,3 +15,4 @@ wandb/
 *.pt
 *.bin
 *.safetensors
+*.log

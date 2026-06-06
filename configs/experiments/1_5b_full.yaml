@@ -30,14 +30,29 @@ unlearning:
   methods: [ga, grad_diff, ga_kl, npo, npo_grad_diff, npo_kl, simnpo, simnpo_grad_diff, simnpo_kl]
   update_mode: lora
   epochs: 10
-  learning_rate: 0.0001
+  learning_rate: 0.00001
   batch_size: 1
   max_length: 256
   beta: 0.1
   simnpo_delta: 0.0
-  gamma: 5.0
+  gamma: 1.0
   alpha: 1.0
   retain_match_floor: 0.8
+  method_overrides:
+    npo:
+      learning_rate: 0.00003
+    npo_grad_diff:
+      learning_rate: 0.00003
+    npo_kl:
+      learning_rate: 0.00003
+    simnpo:
+      beta: 0.7
+    simnpo_grad_diff:
+      beta: 0.7
+      alpha: 0.1
+    simnpo_kl:
+      beta: 0.7
+      alpha: 0.1
 
 evaluation:
   max_new_tokens: 24

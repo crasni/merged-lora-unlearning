@@ -27,7 +27,7 @@ acquisition:
   lora_dropout: 0.0
 
 unlearning:
-  methods: [ga, grad_diff, ga_kl, npo, npo_grad_diff, npo_kl, simnpo, simnpo_grad_diff, simnpo_kl]
+  methods: [ga, npo, simnpo]
   update_mode: lora
   epochs: 10
   learning_rate: 0.0001
@@ -38,6 +38,7 @@ unlearning:
   gamma: 5.0
   alpha: 1.0
   retain_match_floor: 0.8
+  checkpoint_every_epochs: 5
 
 evaluation:
   max_new_tokens: 24

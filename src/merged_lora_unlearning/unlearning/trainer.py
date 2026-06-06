@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from pathlib import Path
 
 from merged_lora_unlearning.artifacts import RunArtifacts, read_jsonl, write_json
@@ -16,6 +17,8 @@ from merged_lora_unlearning.unlearning.objectives import combined_loss, method_s
 def unlearn(config: Config, method: str) -> Path:
     from transformers import Trainer, TrainingArguments
 
+    settings = config.unlearning.settings_for(method)
+
     class UnlearningTrainer(Trainer):
         def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
             loss, outputs = combined_loss(
@@ -23,10 +26,10 @@ def unlearn(config: Config, method: str) -> Path:
                 reference_model=self.reference_model,
                 inputs=inputs,
                 method=method,
-                beta=config.unlearning.beta,
-                simnpo_delta=config.unlearning.simnpo_delta,
-                gamma=config.unlearning.gamma,
-                alpha=config.unlearning.alpha,
+                beta=float(settings["beta"]),
+                simnpo_delta=float(settings["simnpo_delta"]),
+                gamma=float(settings["gamma"]),
+                alpha=float(settings["alpha"]),
             )
             return (loss, outputs) if return_outputs else loss
 
@@ -43,8 +46,9 @@ def unlearn(config: Config, method: str) -> Path:
     forget_method, retain_loss_type = method_spec(method)
     details = (
         f"method={method} forget_objective={forget_method} retain_regularizer={retain_loss_type} "
-        f"forget={len(forget)} retain={len(retain)} epochs={config.unlearning.epochs} "
-        f"update={config.unlearning.update_mode}"
+        f"forget={len(forget)} retain={len(retain)} epochs={settings['epochs']} "
+        f"lr={settings['learning_rate']} beta={settings['beta']} gamma={settings['gamma']} "
+        f"alpha={settings['alpha']} update={config.unlearning.update_mode}"
     )
     with stage(f"unlearn-train:{method}", details):
         needs_reference = forget_method == "npo" or retain_loss_type == "kl"
@@ -75,15 +79,22 @@ def unlearn(config: Config, method: str) -> Path:
             raise ValueError("unlearning.update_mode must be lora or full")
         trainable = sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad)
         total = sum(parameter.numel() for parameter in model.parameters())
+        steps_per_epoch = math.ceil(len(dataset) / int(settings["batch_size"]))
+        save_steps = steps_per_epoch * config.unlearning.checkpoint_every_epochs
         info(f"Trainable parameters: {trainable:,}/{total:,} ({trainable / total:.2%})")
+        info(
+            f"Checkpoint cadence: every {config.unlearning.checkpoint_every_epochs} epochs "
+            f"({save_steps} steps)"
+        )
         args = TrainingArguments(
             output_dir=str(output_dir),
-            num_train_epochs=config.unlearning.epochs,
-            learning_rate=config.unlearning.learning_rate,
-            per_device_train_batch_size=config.unlearning.batch_size,
+            num_train_epochs=int(settings["epochs"]),
+            learning_rate=float(settings["learning_rate"]),
+            per_device_train_batch_size=int(settings["batch_size"]),
             logging_steps=5,
             logging_strategy="steps",
-            save_strategy="epoch",
+            save_strategy="steps",
+            save_steps=save_steps,
             report_to=[],
             remove_unused_columns=False,
             seed=config.experiment.seed,
