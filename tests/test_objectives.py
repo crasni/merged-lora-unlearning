@@ -53,44 +53,42 @@ def test_retain_kl_is_zero_for_identical_models():
     assert retain_kl(FixedModel(logits), FixedModel(logits), inputs).item() == pytest.approx(0.0)
 
 
-@pytest.mark.parametrize("method", ["ga", "npo", "simnpo"])
-def test_pure_forget_method_increases_forget_nll(method):
-    model = ToyLM()
-    reference = copy.deepcopy(model)
-    inputs = _inputs()
-    before = batch_nll(model, inputs)[0].item()
-    loss, _ = combined_loss(
-        model=model,
-        reference_model=reference,
-        inputs={"forget": inputs, "retain": inputs},
-        method=method,
-        beta=0.1,
-        simnpo_delta=0.0,
-        gamma=1.0,
-        alpha=1.0,
-    )
+def test_pure_forget_methods_increase_forget_nll():
+    for method in ("ga", "npo", "simnpo"):
+        model = ToyLM()
+        reference = copy.deepcopy(model)
+        inputs = _inputs()
+        before = batch_nll(model, inputs)[0].item()
+        loss, _ = combined_loss(
+            model=model,
+            reference_model=reference,
+            inputs={"forget": inputs, "retain": inputs},
+            method=method,
+            beta=0.1,
+            simnpo_delta=0.0,
+            gamma=1.0,
+            alpha=1.0,
+        )
 
-    optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
+        optimizer = torch.optim.SGD(model.parameters(), lr=0.1)
+        optimizer.zero_grad()
+        loss.backward()
+        optimizer.step()
 
-    assert batch_nll(model, inputs)[0].item() > before
+        assert batch_nll(model, inputs)[0].item() > before, method
 
 
-@pytest.mark.parametrize(
-    ("method", "expected"),
-    [
-        ("ga", ("ga", "none")),
-        ("grad_diff", ("ga", "nll")),
-        ("ga_kl", ("ga", "kl")),
-        ("npo", ("npo", "none")),
-        ("npo_grad_diff", ("npo", "nll")),
-        ("npo_kl", ("npo", "kl")),
-        ("simnpo", ("simnpo", "none")),
-        ("simnpo_grad_diff", ("simnpo", "nll")),
-        ("simnpo_kl", ("simnpo", "kl")),
-    ],
-)
-def test_named_method_specs(method, expected):
-    assert method_spec(method) == expected
+def test_named_method_specs():
+    expected = {
+        "ga": ("ga", "none"),
+        "grad_diff": ("ga", "nll"),
+        "ga_kl": ("ga", "kl"),
+        "npo": ("npo", "none"),
+        "npo_grad_diff": ("npo", "nll"),
+        "npo_kl": ("npo", "kl"),
+        "simnpo": ("simnpo", "none"),
+        "simnpo_grad_diff": ("simnpo", "nll"),
+        "simnpo_kl": ("simnpo", "kl"),
+    }
+
+    assert {method: method_spec(method) for method in expected} == expected
