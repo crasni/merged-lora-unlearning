@@ -61,6 +61,7 @@ class UnlearningConfig:
 @dataclass(frozen=True)
 class EvaluationConfig:
     max_new_tokens: int = 32
+    filter_batch_size: int = 16
     prompt_types: list[str] = field(
         default_factory=lambda: ["original", "paraphrase", "zh", "mixed"]
     )

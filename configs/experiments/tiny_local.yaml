@@ -41,6 +41,7 @@ unlearning:
 
 evaluation:
   max_new_tokens: 24
+  filter_batch_size: 4
   prompt_types: [original, paraphrase, zh, mixed]
   base_knowledge_threshold: 0.05
   acquisition_threshold: 0.60

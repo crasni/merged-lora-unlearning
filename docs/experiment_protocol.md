@@ -48,6 +48,10 @@ The experiment stops when a required assumption fails:
 3. Merged-model behavior must remain within the configured merge delta.
 4. Checkpoints are selected using validation data only.
 
+The base-filter stage uses batched deterministic generation. It writes each
+completed batch to `base_filter_predictions.jsonl`, displays live progress and
+known-fact rate, and resumes from that file after interruption.
+
 ## Primary Benchmark
 
 MUSE is the primary evaluation benchmark:
