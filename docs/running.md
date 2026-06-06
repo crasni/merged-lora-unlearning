@@ -59,12 +59,11 @@ unlearning run can be retried.
 
 The stronger unlearning changes are:
 
-- `learning_rate: 0.0001` is 10 times the baseline unlearning rate.
-- `gamma: 5.0` gives the forget objective more influence.
-- `alpha: 1.0` scales regularizers for variants that include one.
-- `epochs: 10` gives the pure objectives enough training exposure.
-- `checkpoint_every_epochs: 5` evaluates only epochs 5 and 10, avoiding
-  expensive generation-based validation after every epoch.
+- `learning_rate: 0.00001` and `gamma: 1.0` avoid the catastrophic model
+  collapse observed with the aggressive `1e-4`/`gamma=5` run.
+- `epochs: 3` focuses on the early region before pure objectives over-unlearn.
+- `checkpoint_every_epochs: 1` evaluates epochs 1, 2, and 3 so the useful
+  forget/retain boundary is not missed.
 - `retain_match_floor: 0.8` prevents selecting a checkpoint that forgets by
   broadly damaging retained knowledge.
 - Pure GA, NPO, and SimNPO are compared before testing regularizers.

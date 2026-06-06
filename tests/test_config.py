@@ -14,7 +14,10 @@ def test_load_experiment_profiles():
     assert portable.model.name == "Qwen/Qwen2.5-0.5B-Instruct"
     assert focused.reuse_dir == Path("outputs/runs/1_5b")
     assert focused.unlearning.methods == ["ga", "npo", "simnpo"]
-    assert focused.unlearning.checkpoint_every_epochs == 5
+    assert focused.unlearning.epochs == 3
+    assert focused.unlearning.learning_rate == 0.00001
+    assert focused.unlearning.gamma == 1.0
+    assert focused.unlearning.checkpoint_every_epochs == 1
     assert full.unlearning.settings_for("npo")["learning_rate"] == 0.00003
     assert full.unlearning.settings_for("simnpo_grad_diff")["beta"] == 0.7
     assert full.unlearning.settings_for("simnpo_grad_diff")["alpha"] == 0.1

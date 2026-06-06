@@ -29,16 +29,16 @@ acquisition:
 unlearning:
   methods: [ga, npo, simnpo]
   update_mode: lora
-  epochs: 10
-  learning_rate: 0.0001
+  epochs: 3
+  learning_rate: 0.00001
   batch_size: 1
   max_length: 256
   beta: 0.1
   simnpo_delta: 0.0
-  gamma: 5.0
+  gamma: 1.0
   alpha: 1.0
   retain_match_floor: 0.8
-  checkpoint_every_epochs: 5
+  checkpoint_every_epochs: 1
 
 evaluation:
   max_new_tokens: 24
