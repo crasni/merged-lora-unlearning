@@ -64,3 +64,10 @@ MUSE is the primary evaluation benchmark:
 - C6: sustainability
 
 OpenUnlearning metrics supplement MUSE but do not replace it.
+
+## Unlearning Algorithms
+
+Experiments report pure GA, NPO, and SimNPO separately from regularized
+variants. GradDiff uses GA plus retain NLL. `_grad_diff` variants add retain NLL
+to NPO or SimNPO, while `_kl` variants add frozen-target KL regularization.
+Method names therefore identify the actual optimization objective used.

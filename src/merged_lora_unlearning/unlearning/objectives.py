@@ -1,6 +1,26 @@
 from __future__ import annotations
 
 
+METHOD_SPECS = {
+    "ga": ("ga", "none"),
+    "grad_diff": ("ga", "nll"),
+    "ga_kl": ("ga", "kl"),
+    "npo": ("npo", "none"),
+    "npo_grad_diff": ("npo", "nll"),
+    "npo_kl": ("npo", "kl"),
+    "simnpo": ("simnpo", "none"),
+    "simnpo_grad_diff": ("simnpo", "nll"),
+    "simnpo_kl": ("simnpo", "kl"),
+}
+
+
+def method_spec(method: str) -> tuple[str, str]:
+    try:
+        return METHOD_SPECS[method]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported unlearning method: {method}") from exc
+
+
 def batch_nll(model, inputs):
     import torch.nn.functional as F
 
@@ -67,21 +87,19 @@ def combined_loss(
     reference_model,
     inputs,
     method: str,
-    retain_loss_type: str,
     beta: float,
     simnpo_delta: float,
-    forget_weight: float,
-    retain_weight: float,
+    gamma: float,
+    alpha: float,
 ):
+    forget_method, retain_loss_type = method_spec(method)
     forget_inputs = inputs["forget"]
-    if method == "ga":
+    if forget_method == "ga":
         forget_loss, outputs = ga_loss(model, forget_inputs)
-    elif method == "npo":
+    elif forget_method == "npo":
         forget_loss, outputs = npo_loss(model, reference_model, forget_inputs, beta)
-    elif method == "simnpo":
+    elif forget_method == "simnpo":
         forget_loss, outputs = simnpo_loss(model, forget_inputs, beta, simnpo_delta)
-    else:
-        raise ValueError(f"Unsupported unlearning method: {method}")
 
     if retain_loss_type == "none":
         retain_loss = 0.0
@@ -91,4 +109,4 @@ def combined_loss(
         retain_loss = retain_kl(model, reference_model, inputs["retain"])
     else:
         raise ValueError(f"Unsupported retain loss: {retain_loss_type}")
-    return forget_weight * forget_loss + retain_weight * retain_loss, outputs
+    return gamma * forget_loss + alpha * retain_loss, outputs

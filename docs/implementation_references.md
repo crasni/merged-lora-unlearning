@@ -15,6 +15,11 @@ Important implementation decisions:
 
 - NPO uses the frozen merged target model as its reference.
 - SimNPO uses a length-normalized, reference-free forget objective.
-- Retain NLL and retain KL are independent composable regularizers.
+- Pure GA, NPO, and SimNPO are separate named methods.
+- GradDiff and `_grad_diff` variants add retain NLL.
+- `_kl` variants add target-model KL regularization.
+- `gamma` and `alpha` independently scale forget and retain terms.
+- Unlearning uses the same QA-answer and statement examples used during
+  acquisition, rather than targeting only one view of each acquired fact.
 - Retain regularization data is disjoint from retain evaluation data.
 - Fine-grained per-example metrics are always saved alongside aggregates.

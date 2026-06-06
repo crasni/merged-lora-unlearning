@@ -59,18 +59,38 @@ unlearning run can be retried.
 
 The stronger unlearning changes are:
 
-- `retain_loss: kl` preserves target behavior without directly reinforcing
-  retained answers through NLL.
 - `learning_rate: 0.0001` is 10 times the baseline unlearning rate.
-- `forget_weight: 5.0` gives the weak forget gradient more influence.
+- `gamma: 5.0` gives the forget objective more influence.
+- `alpha: 1.0` scales regularizers for variants that include one.
 - `epochs: 10` creates a wider validation-only checkpoint trajectory.
 - `retain_match_floor: 0.8` prevents selecting a checkpoint that forgets by
   broadly damaging retained knowledge.
-- `simnpo` is included as an additional reference-free method.
+- Pure and regularized GA, NPO, and SimNPO variants are compared.
 
 This profile is intentionally a stronger intervention, not a guaranteed best
 configuration. Compare its selected checkpoints against both the merged target
 and retain-only oracle.
+
+## Unlearning Methods
+
+Method names define the exact algorithm variant:
+
+| Method | Forget objective | Retain regularizer |
+|---|---|---|
+| `ga` | Gradient ascent | None |
+| `grad_diff` | Gradient ascent | Retain NLL |
+| `ga_kl` | Gradient ascent | Retain KL |
+| `npo` | Negative preference optimization | None |
+| `npo_grad_diff` | Negative preference optimization | Retain NLL |
+| `npo_kl` | Negative preference optimization | Retain KL |
+| `simnpo` | Length-normalized reference-free SimNPO | None |
+| `simnpo_grad_diff` | SimNPO | Retain NLL |
+| `simnpo_kl` | SimNPO | Retain KL |
+
+`gamma` scales the forget objective and `alpha` scales the retain regularizer,
+matching OpenUnlearning terminology. Pure methods do not apply a retain
+regularizer. NPO and KL variants load a frozen target reference model; pure GA,
+GradDiff, and SimNPO variants do not load an unnecessary reference model.
 
 Outputs and logs are written under `outputs/runs/<profile>/` and
 `outputs/logs/<profile>.log`.

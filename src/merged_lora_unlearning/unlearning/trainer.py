@@ -10,7 +10,7 @@ from merged_lora_unlearning.models.loading import add_lora, load_causal_lm, load
 from merged_lora_unlearning.progress import info, stage
 from merged_lora_unlearning.training.collators import ForgetRetainCollator
 from merged_lora_unlearning.training.datasets import FactTrainingDataset, ForgetRetainDataset
-from merged_lora_unlearning.unlearning.objectives import combined_loss
+from merged_lora_unlearning.unlearning.objectives import combined_loss, method_spec
 
 
 def unlearn(config: Config, method: str) -> Path:
@@ -23,11 +23,10 @@ def unlearn(config: Config, method: str) -> Path:
                 reference_model=self.reference_model,
                 inputs=inputs,
                 method=method,
-                retain_loss_type=config.unlearning.retain_loss,
                 beta=config.unlearning.beta,
                 simnpo_delta=config.unlearning.simnpo_delta,
-                forget_weight=config.unlearning.forget_weight,
-                retain_weight=config.unlearning.retain_weight,
+                gamma=config.unlearning.gamma,
+                alpha=config.unlearning.alpha,
             )
             return (loss, outputs) if return_outputs else loss
 
@@ -41,26 +40,29 @@ def unlearn(config: Config, method: str) -> Path:
         Fact.from_dict(row) for row in read_jsonl(artifacts.data_dir / "retain_regularize.jsonl")
     ]
     output_dir = artifacts.models_dir / method
+    forget_method, retain_loss_type = method_spec(method)
     details = (
-        f"method={method} forget={len(forget)} retain={len(retain)} "
-        f"epochs={config.unlearning.epochs} retain_loss={config.unlearning.retain_loss} "
+        f"method={method} forget_objective={forget_method} retain_regularizer={retain_loss_type} "
+        f"forget={len(forget)} retain={len(retain)} epochs={config.unlearning.epochs} "
         f"update={config.unlearning.update_mode}"
     )
     with stage(f"unlearn-train:{method}", details):
-        info(f"Loading target and frozen reference: {target_dir}")
+        needs_reference = forget_method == "npo" or retain_loss_type == "kl"
+        info(f"Loading target model: {target_dir}")
         tokenizer = load_tokenizer(str(target_dir))
         dataset = ForgetRetainDataset(
-            FactTrainingDataset(
-                forget, tokenizer, config.unlearning.max_length, include_statements=False
-            ),
-            FactTrainingDataset(
-                retain, tokenizer, config.unlearning.max_length, include_statements=False
-            ),
+            FactTrainingDataset(forget, tokenizer, config.unlearning.max_length),
+            FactTrainingDataset(retain, tokenizer, config.unlearning.max_length),
             config.experiment.seed,
         )
-        reference_model = load_causal_lm(
-            str(target_dir), config.model.dtype, config.model.device_map
-        )
+        reference_model = None
+        if needs_reference:
+            info("Loading frozen reference model")
+            reference_model = load_causal_lm(
+                str(target_dir), config.model.dtype, config.model.device_map
+            )
+            reference_model.eval()
+            reference_model.requires_grad_(False)
         model = load_causal_lm(str(target_dir), config.model.dtype, config.model.device_map)
         if config.unlearning.update_mode == "lora":
             model = add_lora(
@@ -71,6 +73,9 @@ def unlearn(config: Config, method: str) -> Path:
             )
         elif config.unlearning.update_mode != "full":
             raise ValueError("unlearning.update_mode must be lora or full")
+        trainable = sum(parameter.numel() for parameter in model.parameters() if parameter.requires_grad)
+        total = sum(parameter.numel() for parameter in model.parameters())
+        info(f"Trainable parameters: {trainable:,}/{total:,} ({trainable / total:.2%})")
         args = TrainingArguments(
             output_dir=str(output_dir),
             num_train_epochs=config.unlearning.epochs,

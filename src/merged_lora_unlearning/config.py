@@ -45,17 +45,16 @@ class AcquisitionConfig:
 
 @dataclass(frozen=True)
 class UnlearningConfig:
-    methods: list[str] = field(default_factory=lambda: ["ga", "npo"])
+    methods: list[str] = field(default_factory=lambda: ["ga", "grad_diff", "npo", "npo_grad_diff"])
     update_mode: str = "lora"
-    retain_loss: str = "nll"
     epochs: int = 10
     learning_rate: float = 1e-5
     batch_size: int = 8
     max_length: int = 256
     beta: float = 0.1
     simnpo_delta: float = 0.0
-    forget_weight: float = 1.0
-    retain_weight: float = 1.0
+    gamma: float = 1.0
+    alpha: float = 1.0
     retain_match_floor: float = 0.7
 
 

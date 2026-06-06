@@ -15,6 +15,6 @@ def test_load_stronger_unlearning_config():
     config = load_config(Path("configs/experiments/1_5b_unlearning.yaml"))
 
     assert config.reuse_dir == Path("outputs/runs/1_5b")
-    assert config.unlearning.retain_loss == "kl"
-    assert config.unlearning.forget_weight == 5.0
+    assert "npo_kl" in config.unlearning.methods
+    assert config.unlearning.gamma == 5.0
     assert config.unlearning.learning_rate == 0.0001

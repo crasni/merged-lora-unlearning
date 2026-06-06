@@ -6,6 +6,7 @@ from typing import Callable
 
 from merged_lora_unlearning.artifacts import RunArtifacts, read_json
 from merged_lora_unlearning.config import Config, load_config
+from merged_lora_unlearning.unlearning.objectives import METHOD_SPECS
 
 
 def _config_argument(parser: argparse.ArgumentParser) -> None:
@@ -25,7 +26,7 @@ def build_parser() -> argparse.ArgumentParser:
         command = subparsers.add_parser(name)
         _config_argument(command)
     unlearn_parser = subparsers.add_parser("unlearn")
-    unlearn_parser.add_argument("method", choices=("ga", "npo", "simnpo"))
+    unlearn_parser.add_argument("method", choices=tuple(METHOD_SPECS))
     _config_argument(unlearn_parser)
     eval_parser = subparsers.add_parser("eval")
     eval_parser.add_argument("--model", required=True, help="base, acquisition_adapter, target, oracle, or method")

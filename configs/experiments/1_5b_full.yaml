@@ -1,42 +1,43 @@
 experiment:
-  name: 0_5b
+  name: 1_5b_full
   seed: 42
   output_root: outputs/runs
+  reuse_from: 1_5b
 
 model:
-  name: Qwen/Qwen2.5-0.5B-Instruct
+  name: Qwen/Qwen2.5-1.5B-Instruct
   dtype: float16
   device_map: auto
 
 data:
-  generated_facts: 400
-  acquisition_size: 200
-  holdout_size: 50
+  generated_facts: 600
+  acquisition_size: 250
+  holdout_size: 100
   forget_ratio: 0.2
   validation_ratio: 0.1
   categories: [capital, inventor, acquisition, author, founding]
 
 acquisition:
-  epochs: 20
-  learning_rate: 0.001
-  batch_size: 4
+  epochs: 15
+  learning_rate: 0.0005
+  batch_size: 2
   max_length: 256
-  lora_rank: 64
-  lora_alpha: 128
+  lora_rank: 32
+  lora_alpha: 64
   lora_dropout: 0.0
 
 unlearning:
-  methods: [ga, grad_diff, npo, npo_grad_diff, simnpo]
+  methods: [ga, grad_diff, ga_kl, npo, npo_grad_diff, npo_kl, simnpo, simnpo_grad_diff, simnpo_kl]
   update_mode: lora
-  epochs: 3
-  learning_rate: 0.00001
-  batch_size: 2
+  epochs: 10
+  learning_rate: 0.0001
+  batch_size: 1
   max_length: 256
   beta: 0.1
   simnpo_delta: 0.0
-  gamma: 1.0
+  gamma: 5.0
   alpha: 1.0
-  retain_match_floor: 0.5
+  retain_match_floor: 0.8
 
 evaluation:
   max_new_tokens: 24
