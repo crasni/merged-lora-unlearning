@@ -59,3 +59,5 @@ See [docs/experiment_protocol.md](docs/experiment_protocol.md) for the experimen
 contract and [docs/metrics.md](docs/metrics.md) for when each metric is used.
 For a quota-conscious GPU walkthrough, see [docs/kaggle.md](docs/kaggle.md).
 For a ready-to-run Colab 1.5B experiment, see [docs/colab.md](docs/colab.md).
+For a ready-to-run local 0.5B experiment, see
+[docs/local_0_5b.md](docs/local_0_5b.md).
