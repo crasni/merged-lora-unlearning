@@ -7,6 +7,7 @@ The repository has two portable experiment profiles:
 | `0_5b` | `Qwen/Qwen2.5-0.5B-Instruct` | Faster and cheaper development run |
 | `1_5b` | `Qwen/Qwen2.5-1.5B-Instruct` | Main higher-capacity run |
 | `1_5b_unlearning` | `Qwen/Qwen2.5-1.5B-Instruct` | Stronger unlearning follow-up |
+| `1_5b_tuned` | `Qwen/Qwen2.5-1.5B-Instruct` | Focused trajectory-derived follow-up |
 
 All paths are relative to the repository. Clone the repository onto persistent
 storage when using an ephemeral GPU platform.
@@ -28,6 +29,7 @@ nvidia-smi
 scripts/run.sh 0_5b
 scripts/run.sh 1_5b
 scripts/run.sh 1_5b_unlearning
+scripts/run.sh 1_5b_tuned
 ```
 
 The profile argument is required. Running without one prints the available
@@ -98,6 +100,17 @@ are not claimed optimal for Qwen-1.5B LoRA: the sources use Llama-2-7B full
 fine-tuning and much larger MUSE corpora. A setting is considered useful only
 when its selected checkpoint lowers validation forget metrics while meeting
 `retain_match_floor: 0.8`; final conclusions must use the held-out test report.
+
+### Trajectory-Derived Follow-Up
+
+`1_5b_tuned` reuses the `1_5b` baseline and focuses on the methods that showed
+credible selective movement in `1_5b_full`. It evaluates every epoch because
+GA-family and SimNPO-family methods crossed from no effect to retain collapse
+between the previous two-epoch checkpoints. It keeps the measured batch size
+of `2`, raises the retain floor to `0.85`, strengthens NPO slightly, reduces the
+NPO GradDiff retain coefficient, and makes SimNPO GradDiff substantially less
+aggressive. KL variants, pure GA, and pure SimNPO are excluded because the
+observed run showed no movement or non-selective collapse.
 
 ## Unlearning Methods
 
