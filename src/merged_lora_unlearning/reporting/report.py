@@ -18,6 +18,26 @@ def _get(metrics: dict[str, Any], *path: str) -> float:
     return float(value)
 
 
+def _optional_get(metrics: dict[str, Any], *path: str) -> float | None:
+    value: Any = metrics
+    for key in path:
+        if not isinstance(value, dict) or key not in value or value[key] is None:
+            return None
+        value = value[key]
+    return float(value)
+
+
+def _robustness_match(metrics: dict[str, Any], prompt_type: str, split: str) -> float | None:
+    value = _optional_get(
+        metrics, "supplementary", "robustness", prompt_type, split, "normalized_match"
+    )
+    if value is None and split == "forget":
+        value = _optional_get(
+            metrics, "supplementary", "robustness", prompt_type, "normalized_match"
+        )
+    return value
+
+
 def _row(role: str, metrics: dict[str, Any], oracle_privacy_auc: float | None) -> dict[str, Any]:
     privacy_auc = _get(metrics, "muse", "c3_privacy", "min_k_40_auc")
     return {
@@ -35,9 +55,16 @@ def _row(role: str, metrics: dict[str, Any], oracle_privacy_auc: float | None) -
         "c4_retain_rouge_l": _get(metrics, "muse", "c4_knowledge_retain", "rouge_l"),
         "c4_retain_match": _get(metrics, "muse", "c4_knowledge_retain", "normalized_match"),
         "holdout_match": _get(metrics, "supplementary", "holdout", "normalized_match"),
-        "robustness_paraphrase_match": _get(
-            metrics, "supplementary", "robustness", "paraphrase", "normalized_match"
+        "general_utility_match": _optional_get(
+            metrics, "supplementary", "general_utility", "normalized_match"
         ),
+        **{
+            f"robustness_{prompt_type}_{split}_match": _robustness_match(
+                metrics, prompt_type, split
+            )
+            for prompt_type in ("paraphrase", "zh", "mixed")
+            for split in ("forget", "retain")
+        },
     }
 
 
@@ -111,26 +138,49 @@ def _generate_report(config: Config) -> Path:
             "",
             f"Retain floor: `{config.unlearning.retain_match_floor:.2f}`.",
             "",
-            "| Model | Result | Forget Match ↓ | Δ vs Target ↓ | Retain Match ↑ | Δ vs Target ↑ | Privacy Distance ↓ | Paraphrase Match ↓ |",
+            "| Model | Result | Forget Match ↓ | Δ vs Target ↓ | Retain Match ↑ | Δ vs Target ↑ | Privacy Distance ↓ | Utility ↑ |",
             "|---|---|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for row in rows:
         distance = row["c3_distance_to_oracle"]
         distance_text = f"{distance:.4f}" if distance is not None else "n/a"
+        utility = row["general_utility_match"]
+        utility_text = f"{utility:.4f}" if utility is not None else "n/a"
         lines.append(
             f"| {row['model']} | {row['result']} | {row['c2_forget_match']:.4f} | "
             f"{row['forget_match_delta_vs_target']:+.4f} | {row['c4_retain_match']:.4f} | "
-            f"{row['retain_match_delta_vs_target']:+.4f} | {distance_text} | "
-            f"{row['robustness_paraphrase_match']:.4f} |"
+            f"{row['retain_match_delta_vs_target']:+.4f} | {distance_text} | {utility_text} |"
         )
+    available_prompts = [
+        prompt_type
+        for prompt_type in ("paraphrase", "zh", "mixed")
+        if any(row[f"robustness_{prompt_type}_forget_match"] is not None for row in rows)
+    ]
+    if available_prompts:
+        lines.extend(
+            [
+                "",
+                "## Robustness",
+                "",
+                "| Model | Prompt | Forget Match ↓ | Retain Match ↑ |",
+                "|---|---|---:|---:|",
+            ]
+        )
+        for row in rows:
+            for prompt_type in available_prompts:
+                forget = row[f"robustness_{prompt_type}_forget_match"]
+                retain = row[f"robustness_{prompt_type}_retain_match"]
+                forget_text = f"{forget:.4f}" if forget is not None else "n/a"
+                retain_text = f"{retain:.4f}" if retain is not None else "n/a"
+                lines.append(f"| {row['model']} | {prompt_type} | {forget_text} | {retain_text} |")
     lines.extend(
         [
             "",
             "`selective` improves forget match versus target while meeting the retain floor; "
             "`collapsed` misses the retain floor; `unchanged` does not improve forget match.",
             "",
-            "Supporting ROUGE-L, verbatim, holdout, and fine-grained scores are in "
+            "Supporting ROUGE-L, verbatim, holdout, utility, and fine-grained scores are in "
             "`report/summary.json` and `evaluations/<model>/`.",
             "C5 scalability and C6 sustainability are separate experiment suites added after the MVP.",
             "",

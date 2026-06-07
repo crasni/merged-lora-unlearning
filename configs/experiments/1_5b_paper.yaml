@@ -1,8 +1,9 @@
 experiment:
-  name: 1_5b_tuned
+  name: 1_5b_paper
   seed: 42
   output_root: outputs/runs
-  reuse_from: 1_5b
+  reuse_from: 1_5b_paper_base
+  forget_request_ratio: 0.20
 
 model:
   name: Qwen/Qwen2.5-1.5B-Instruct
@@ -10,15 +11,15 @@ model:
   device_map: auto
 
 data:
-  generated_facts: 600
-  acquisition_size: 250
-  holdout_size: 100
+  generated_facts: 3000
+  acquisition_size: 1000
+  holdout_size: 300
   forget_ratio: 0.2
   validation_ratio: 0.1
   categories: [capital, inventor, acquisition, author, founding]
 
 acquisition:
-  epochs: 15
+  epochs: 5
   learning_rate: 0.0005
   batch_size: 2
   max_length: 256
@@ -59,7 +60,6 @@ unlearning:
     simnpo:
       beta: 0.7
     simnpo_grad_diff:
-      learning_rate: 0.00001
       beta: 0.7
       alpha: 0.1
     simnpo_kl:
@@ -69,7 +69,8 @@ unlearning:
 evaluation:
   max_new_tokens: 24
   filter_batch_size: 16
-  prompt_types: [original, paraphrase]
+  prompt_types: [original, paraphrase, zh, mixed]
   base_knowledge_threshold: 0.05
   acquisition_threshold: 0.60
   merge_max_delta: 0.05
+  general_utility: true

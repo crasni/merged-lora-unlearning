@@ -6,14 +6,25 @@ from typing import Any
 
 import yaml
 
-from merged_lora_unlearning.artifacts import RunArtifacts, read_json, sha256_file, write_json
+from merged_lora_unlearning.artifacts import (
+    RunArtifacts,
+    read_json,
+    read_jsonl,
+    sha256_file,
+    write_json,
+    write_jsonl,
+)
 from merged_lora_unlearning.config import Config
+from merged_lora_unlearning.data.schemas import Fact
+from merged_lora_unlearning.data.splitting import make_request_splits, oracle_facts
 from merged_lora_unlearning.progress import info, stage
 
 
 REUSED_EVALUATION_ROLES = ("base", "acquisition_adapter", "target", "oracle")
 COMPATIBLE_CONFIG_SECTIONS = ("model", "data", "acquisition", "evaluation")
 REQUIRED_DATA_FILES = (
+    "acquisition_all.jsonl",
+    "oracle_all.jsonl",
     "forget_train.jsonl",
     "forget_validation.jsonl",
     "forget_test.jsonl",
@@ -61,6 +72,38 @@ def _compatibility_errors(config: Config, source_raw: dict[str, Any]) -> list[st
         if source_raw.get(section) != config.raw.get(section):
             errors.append(section)
     return errors
+
+
+def _prepare_forget_request(config: Config, artifacts: RunArtifacts) -> None:
+    ratio = config.experiment.forget_request_ratio
+    if ratio is None:
+        return
+    acquisition = [
+        Fact.from_dict(row) for row in read_jsonl(artifacts.data_dir / "acquisition_all.jsonl")
+    ]
+    holdout = [Fact.from_dict(row) for row in read_jsonl(artifacts.data_dir / "holdout.jsonl")]
+    splits = make_request_splits(
+        acquisition,
+        holdout,
+        ratio,
+        config.data.validation_ratio,
+        config.experiment.seed,
+    )
+    for name, values in splits.items():
+        write_jsonl(artifacts.data_dir / f"{name}.jsonl", (fact.to_dict() for fact in values))
+    write_jsonl(
+        artifacts.data_dir / "oracle_all.jsonl",
+        (fact.to_dict() for fact in oracle_facts(splits)),
+    )
+    counts = {name: len(values) for name, values in splits.items()}
+    write_json(
+        artifacts.data_dir / "summary.json",
+        {"counts": counts, "base_filtered": True, "forget_request_ratio": ratio},
+    )
+    info(
+        f"Prepared fixed-target forget request ratio={ratio:.2f} | "
+        + " ".join(f"{name}={count}" for name, count in counts.items())
+    )
 
 
 def prepare_reused_baseline(config: Config) -> None:
@@ -116,6 +159,7 @@ def prepare_reused_baseline(config: Config) -> None:
 
         source_identity = {
             "source": str(source),
+            "forget_request_ratio": config.experiment.forget_request_ratio,
             "source_resolved_config_sha256": sha256_file(resolved_config),
             "source_manifest_sha256": (
                 sha256_file(source / "manifest.json") if (source / "manifest.json").exists() else None
@@ -135,7 +179,11 @@ def prepare_reused_baseline(config: Config) -> None:
             artifacts.initialize()
             artifacts.data_dir.rmdir()
             shutil.copytree(source / "data", artifacts.data_dir)
-            for role in REUSED_EVALUATION_ROLES:
+            _prepare_forget_request(config, artifacts)
+            copied_roles = (
+                () if config.experiment.forget_request_ratio is not None else REUSED_EVALUATION_ROLES
+            )
+            for role in copied_roles:
                 shutil.copytree(source / "evaluations" / role, artifacts.evaluations_dir / role)
 
             artifacts.set_stage("reuse_baseline", "complete", {"source": str(source)})
@@ -144,7 +192,7 @@ def prepare_reused_baseline(config: Config) -> None:
                 {
                     **source_identity,
                     "model_source": str(source / "models" / "target"),
-                    "copied_evaluations": list(REUSED_EVALUATION_ROLES),
+                    "copied_evaluations": list(copied_roles),
                 },
             )
             artifacts.record_artifact(reuse_record, role="reuse_provenance")

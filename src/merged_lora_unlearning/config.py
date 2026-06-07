@@ -13,6 +13,14 @@ class ExperimentConfig:
     seed: int = 42
     output_root: str = "outputs/runs"
     reuse_from: str | None = None
+    forget_request_ratio: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.forget_request_ratio is not None:
+            if self.reuse_from is None:
+                raise ValueError("forget_request_ratio requires reuse_from")
+            if not 0 < self.forget_request_ratio < 1:
+                raise ValueError("forget_request_ratio must be between 0 and 1")
 
 
 @dataclass(frozen=True)
@@ -93,6 +101,7 @@ class EvaluationConfig:
     base_knowledge_threshold: float = 0.05
     acquisition_threshold: float = 0.8
     merge_max_delta: float = 0.02
+    general_utility: bool = True
 
 
 @dataclass(frozen=True)
@@ -117,12 +126,10 @@ class Config:
         return Path(self.experiment.output_root) / self.experiment.reuse_from
 
     def model_dir(self, role: str) -> Path:
-        if self.reuse_dir is not None and role in {
-            "acquisition_adapter",
-            "target",
-            "oracle_adapter",
-            "retain_oracle",
-        }:
+        reused_roles = {"acquisition_adapter", "target"}
+        if self.experiment.forget_request_ratio is None:
+            reused_roles.update({"oracle_adapter", "retain_oracle"})
+        if self.reuse_dir is not None and role in reused_roles:
             return self.reuse_dir / "models" / role
         return self.run_dir / "models" / role
 

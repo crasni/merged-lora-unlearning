@@ -25,6 +25,11 @@ def run_full_experiment(config: Config) -> None:
 def _run_full_experiment(config: Config) -> None:
     if config.experiment.reuse_from:
         prepare_reused_baseline(config)
+        if config.experiment.forget_request_ratio is not None:
+            evaluate_model(config, "target")
+            train_lora(config, "oracle")
+            merge_lora(config, "oracle")
+            evaluate_model(config, "oracle")
         for method in config.unlearning.methods:
             unlearn(config, method)
             evaluate_model(config, method)

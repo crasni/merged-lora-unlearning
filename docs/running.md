@@ -103,14 +103,12 @@ when its selected checkpoint lowers validation forget metrics while meeting
 
 ### Trajectory-Derived Follow-Up
 
-`1_5b_tuned` reuses the `1_5b` baseline and focuses on the methods that showed
-credible selective movement in `1_5b_full`. It evaluates every epoch because
-GA-family and SimNPO-family methods crossed from no effect to retain collapse
-between the previous two-epoch checkpoints. It keeps the measured batch size
-of `2`, raises the retain floor to `0.85`, strengthens NPO slightly, reduces the
-NPO GradDiff retain coefficient, and makes SimNPO GradDiff substantially less
-aggressive. KL variants, pure GA, and pure SimNPO are excluded because the
-observed run showed no movement or non-selective collapse.
+`1_5b_tuned` reuses the `1_5b` baseline and evaluates all nine methods with
+trajectory-derived settings. It evaluates every epoch because GA-family and
+SimNPO-family methods crossed from no effect to retain collapse between the
+previous two-epoch checkpoints. It keeps the measured batch size of `2`, raises
+the retain floor to `0.85`, reduces pure GA strength, and weakens regularizer
+coefficients that previously prevented measurable forgetting.
 
 ## Unlearning Methods
 
@@ -140,6 +138,37 @@ coarser forgetting/retention trajectory.
 
 Outputs and logs are written under `outputs/runs/<profile>/` and
 `outputs/logs/<profile>.log`.
+
+## Paper Experiment
+
+The paper-scale workflow increases acquisition from `250` to `1000` facts,
+uses `300` holdout facts, evaluates all nine implemented methods at the main
+20% forget request, and enables original, paraphrase, Chinese, and mixed
+forget/retain evaluation plus lightweight general utility.
+
+Run the expensive shared baseline once:
+
+```bash
+scripts/run_paper.sh baseline
+```
+
+Run the complete main comparison:
+
+```bash
+scripts/run_paper.sh main
+```
+
+Run C5 scalability at 5%, 10%, and 40%; the main run supplies 20%:
+
+```bash
+scripts/run_paper.sh scalability
+```
+
+Scalability runs reuse the same merged acquisition target, derive deterministic
+nested forget requests, and train a request-specific retain oracle. To control
+runtime, C5 covers GA, GradDiff, NPO, NPO+GradDiff, SimNPO, and
+SimNPO+GradDiff; the main 20% comparison covers all KL variants too. The
+combined C5 table is written to `outputs/reports/1_5b_scalability.csv`.
 
 ## Regenerate a Report
 

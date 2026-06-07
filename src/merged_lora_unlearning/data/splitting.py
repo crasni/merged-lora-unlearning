@@ -44,8 +44,22 @@ def make_splits(
     rng.shuffle(shuffled)
     acquisition = shuffled[:acquisition_size]
     holdout = shuffled[acquisition_size : acquisition_size + holdout_size]
+    return make_request_splits(acquisition, holdout, forget_ratio, validation_ratio, seed)
 
-    forget_size = max(3, round(acquisition_size * forget_ratio))
+
+def make_request_splits(
+    acquisition: list[Fact],
+    holdout: list[Fact],
+    forget_ratio: float,
+    validation_ratio: float,
+    seed: int,
+) -> dict[str, list[Fact]]:
+    if not 0 < forget_ratio < 1:
+        raise ValueError("forget_ratio must be between 0 and 1")
+    rng = random.Random(seed)
+    acquisition = list(acquisition)
+    rng.shuffle(acquisition)
+    forget_size = max(3, round(len(acquisition) * forget_ratio))
     forget_all = acquisition[:forget_size]
     retain_all = acquisition[forget_size:]
     forget_train, forget_validation, forget_test = _partition(forget_all, validation_ratio)
@@ -82,4 +96,3 @@ def oracle_facts(splits: dict[str, list[Fact]]) -> list[Fact]:
         for name in ("retain_regularize", "retain_validation", "retain_test")
         for fact in splits[name]
     ]
-

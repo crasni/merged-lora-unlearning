@@ -38,6 +38,14 @@ scripts/run.sh 1_5b
 scripts/run.sh 1_5b_unlearning
 ```
 
+Run the larger paper experiment after the correctness-scale profiles work:
+
+```bash
+scripts/run_paper.sh baseline
+scripts/run_paper.sh main
+scripts/run_paper.sh scalability
+```
+
 Individual stages remain available:
 
 ```bash

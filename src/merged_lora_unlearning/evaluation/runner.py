@@ -12,6 +12,7 @@ from merged_lora_unlearning.evaluation.muse import (
     evaluate_verbatim,
     privacy_auc,
 )
+from merged_lora_unlearning.evaluation.utility import evaluate_general_utility
 from merged_lora_unlearning.models.loading import load_causal_lm, load_tokenizer
 from merged_lora_unlearning.progress import info, metric_summary, stage
 
@@ -77,7 +78,7 @@ def _evaluate_loaded_model(config: Config, role: str, model, tokenizer, artifact
     for prompt_type in config.evaluation.prompt_types:
         if prompt_type == "original":
             continue
-        forget_metrics, prompt_rows = evaluate_knowledge(
+        forget_metrics, forget_prompt_rows = evaluate_knowledge(
             model,
             tokenizer,
             forget,
@@ -85,10 +86,31 @@ def _evaluate_loaded_model(config: Config, role: str, model, tokenizer, artifact
             config.evaluation.max_new_tokens,
             f"{role} | robustness {prompt_type}",
         )
-        robustness[prompt_type] = forget_metrics
-        robustness_path = output_dir / f"forget_{prompt_type}.jsonl"
-        write_jsonl(robustness_path, prompt_rows)
-        artifacts.record_artifact(robustness_path, role=f"{role}:robustness:{prompt_type}")
+        retain_metrics, retain_prompt_rows = evaluate_knowledge(
+            model,
+            tokenizer,
+            retain,
+            prompt_type,
+            config.evaluation.max_new_tokens,
+            f"{role} | retain robustness {prompt_type}",
+        )
+        robustness[prompt_type] = {"forget": forget_metrics, "retain": retain_metrics}
+        for split, rows in (("forget", forget_prompt_rows), ("retain", retain_prompt_rows)):
+            robustness_path = output_dir / f"{split}_{prompt_type}.jsonl"
+            write_jsonl(robustness_path, rows)
+            artifacts.record_artifact(
+                robustness_path, role=f"{role}:robustness:{split}:{prompt_type}"
+            )
+
+    utility_metrics = None
+    utility_rows = None
+    if config.evaluation.general_utility:
+        utility_metrics, utility_rows = evaluate_general_utility(
+            model,
+            tokenizer,
+            config.evaluation.max_new_tokens,
+            f"{role} | general utility",
+        )
 
     metrics = {
         "model_role": role,
@@ -98,7 +120,11 @@ def _evaluate_loaded_model(config: Config, role: str, model, tokenizer, artifact
             "c3_privacy": c3,
             "c4_knowledge_retain": c4,
         },
-        "supplementary": {"holdout": holdout_metrics, "robustness": robustness},
+        "supplementary": {
+            "holdout": holdout_metrics,
+            "robustness": robustness,
+            "general_utility": utility_metrics,
+        },
     }
     result_files = {
         "metrics.json": ("evaluation_metrics", metrics, write_json),
@@ -109,6 +135,12 @@ def _evaluate_loaded_model(config: Config, role: str, model, tokenizer, artifact
         "privacy_forget.jsonl": ("muse_c3_forget_rows", privacy_forget_rows, write_jsonl),
         "privacy_holdout.jsonl": ("muse_c3_holdout_rows", privacy_holdout_rows, write_jsonl),
     }
+    if utility_rows is not None:
+        result_files["general_utility.jsonl"] = (
+            "general_utility_rows",
+            utility_rows,
+            write_jsonl,
+        )
     for filename, (artifact_role, value, writer) in result_files.items():
         path = output_dir / filename
         writer(path, value)
@@ -117,6 +149,8 @@ def _evaluate_loaded_model(config: Config, role: str, model, tokenizer, artifact
     metric_summary("C1 verbatim forget", c1, ("mean_rouge_l", "answer_match_rate"))
     metric_summary("C2 knowledge forget", c2, ("normalized_match", "rouge_l"))
     metric_summary("C4 knowledge retain", c4, ("normalized_match", "rouge_l"))
+    if utility_metrics is not None:
+        metric_summary("General utility", utility_metrics, ("normalized_match",))
     info(f"C3 privacy | min_k_40_auc={c3['min_k_40_auc']:.4f} loss_auc={c3['loss_auc']:.4f}")
     info(f"Saved evaluation: {output_dir}")
     return metrics
