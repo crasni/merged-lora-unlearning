@@ -11,15 +11,15 @@ model:
   device_map: auto
 
 data:
-  generated_facts: 3000
-  acquisition_size: 1000
-  holdout_size: 300
+  generated_facts: 1500
+  acquisition_size: 500
+  holdout_size: 150
   forget_ratio: 0.2
   validation_ratio: 0.1
   categories: [capital, inventor, acquisition, author, founding]
 
 acquisition:
-  epochs: 15
+  epochs: 12
   learning_rate: 0.0005
   batch_size: 2
   max_length: 256
@@ -30,7 +30,7 @@ acquisition:
 unlearning:
   methods: [ga, grad_diff, ga_kl, npo, npo_grad_diff, npo_kl, simnpo, simnpo_grad_diff, simnpo_kl]
   update_mode: lora
-  epochs: 10
+  epochs: 6
   learning_rate: 0.00001
   batch_size: 2
   max_length: 256
@@ -38,8 +38,8 @@ unlearning:
   simnpo_delta: 0.0
   gamma: 1.0
   alpha: 1.0
-  retain_match_floor: 0.85
-  checkpoint_every_epochs: 1
+  retain_match_floor: 0.75
+  checkpoint_every_epochs: 2
   method_overrides:
     ga:
       learning_rate: 0.00002
@@ -69,7 +69,7 @@ unlearning:
 evaluation:
   max_new_tokens: 24
   filter_batch_size: 16
-  prompt_types: [original, paraphrase, zh, mixed]
+  prompt_types: [original, paraphrase, mixed]
   base_knowledge_threshold: 0.05
   acquisition_threshold: 0.60
   merge_max_delta: 0.05
