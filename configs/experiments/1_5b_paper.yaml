@@ -19,7 +19,7 @@ data:
   categories: [capital, inventor, acquisition, author, founding]
 
 acquisition:
-  epochs: 24
+  epochs: 18
   learning_rate: 0.001
   batch_size: 2
   max_length: 256
@@ -38,7 +38,7 @@ unlearning:
   simnpo_delta: 0.0
   gamma: 1.0
   alpha: 1.0
-  retain_match_floor: 0.50
+  retain_match_floor: 0.80
   checkpoint_every_epochs: 2
   method_overrides:
     ga:
