@@ -87,6 +87,11 @@ scripts/run.sh 1_5b_full
 | SimNPO | `1e-5` | `10` | `0.7` | `1.0 / N/A` | Official SimNPO MUSE-News command |
 | Regularized SimNPO | `1e-5` | `10` | `0.7` | `1.0 / 0.1` | Official SimNPO MUSE-News GDR command |
 
+Methods within each family share the same learning rate, beta, and forget
+weight, making the retain regularizer the controlled difference.
+`checkpoint_every_epochs: 2` evaluates epochs 2, 4, 6, 8, and 10, reducing
+generation-based checkpoint selection by half without hiding the trajectory.
+
 The SimNPO repository publishes GDR, not KL, for MUSE. `simnpo_kl` uses the
 published GDR retain coefficient as a controlled extrapolation. These settings
 are not claimed optimal for Qwen-1.5B LoRA: the sources use Llama-2-7B full

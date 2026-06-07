@@ -21,6 +21,7 @@ def test_load_experiment_profiles():
     assert full.unlearning.settings_for("npo")["learning_rate"] == 0.00003
     assert full.unlearning.settings_for("simnpo_grad_diff")["beta"] == 0.7
     assert full.unlearning.settings_for("simnpo_grad_diff")["alpha"] == 0.1
+    assert full.unlearning.checkpoint_every_epochs == 2
 
 
 def test_unlearning_config_rejects_invalid_settings():

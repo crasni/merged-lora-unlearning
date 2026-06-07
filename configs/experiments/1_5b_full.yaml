@@ -38,6 +38,7 @@ unlearning:
   gamma: 1.0
   alpha: 1.0
   retain_match_floor: 0.8
+  checkpoint_every_epochs: 2
   method_overrides:
     npo:
       learning_rate: 0.00003
