@@ -8,6 +8,8 @@ from merged_lora_unlearning.artifacts import RunArtifacts, read_json, write_json
 from merged_lora_unlearning.config import Config
 from merged_lora_unlearning.progress import info, stage
 
+BASELINE_ROLES = {"base", "acquisition_adapter", "target", "oracle"}
+
 
 def _get(metrics: dict[str, Any], *path: str) -> float:
     value: Any = metrics
@@ -21,6 +23,9 @@ def _row(role: str, metrics: dict[str, Any], oracle_privacy_auc: float | None) -
     return {
         "model": role,
         "c1_verbatim_rouge_l": _get(metrics, "muse", "c1_verbatim_forget", "mean_rouge_l"),
+        "c1_verbatim_match": _get(
+            metrics, "muse", "c1_verbatim_forget", "answer_match_rate"
+        ),
         "c2_forget_rouge_l": _get(metrics, "muse", "c2_knowledge_forget", "rouge_l"),
         "c2_forget_match": _get(metrics, "muse", "c2_knowledge_forget", "normalized_match"),
         "c3_min_k_auc": privacy_auc,
@@ -30,7 +35,25 @@ def _row(role: str, metrics: dict[str, Any], oracle_privacy_auc: float | None) -
         "c4_retain_rouge_l": _get(metrics, "muse", "c4_knowledge_retain", "rouge_l"),
         "c4_retain_match": _get(metrics, "muse", "c4_knowledge_retain", "normalized_match"),
         "holdout_match": _get(metrics, "supplementary", "holdout", "normalized_match"),
+        "robustness_paraphrase_match": _get(
+            metrics, "supplementary", "robustness", "paraphrase", "normalized_match"
+        ),
     }
+
+
+def _classify(row: dict[str, Any], target: dict[str, Any], retain_floor: float) -> str:
+    if row["model"] in BASELINE_ROLES:
+        return "baseline"
+    if row["c4_retain_match"] < retain_floor:
+        return "collapsed"
+    if row["c2_forget_match"] < target["c2_forget_match"]:
+        return "selective"
+    return "unchanged"
+
+
+def _ordered_rows(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    priority = {"target": 0, "oracle": 1, "acquisition_adapter": 3, "base": 4}
+    return sorted(rows, key=lambda row: (priority.get(row["model"], 2), row["model"]))
 
 
 def generate_report(config: Config) -> Path:
@@ -49,6 +72,14 @@ def _generate_report(config: Config) -> Path:
     if "oracle" in evaluations:
         oracle_auc = _get(evaluations["oracle"], "muse", "c3_privacy", "min_k_40_auc")
     rows = [_row(role, metrics, oracle_auc) for role, metrics in evaluations.items()]
+    if "target" not in evaluations:
+        raise RuntimeError("Target evaluation is required for report comparisons")
+    target = next(row for row in rows if row["model"] == "target")
+    for row in rows:
+        row["forget_match_delta_vs_target"] = row["c2_forget_match"] - target["c2_forget_match"]
+        row["retain_match_delta_vs_target"] = row["c4_retain_match"] - target["c4_retain_match"]
+        row["result"] = _classify(row, target, config.unlearning.retain_match_floor)
+    rows = _ordered_rows(rows)
 
     csv_path = artifacts.report_dir / "summary.csv"
     csv_path.parent.mkdir(parents=True, exist_ok=True)
@@ -59,38 +90,48 @@ def _generate_report(config: Config) -> Path:
     write_json(artifacts.report_dir / "summary.json", rows)
 
     status = read_json(artifacts.status_path)
+    state_counts: dict[str, int] = {}
+    for value in status.values():
+        state = value["state"]
+        state_counts[state] = state_counts.get(state, 0) + 1
+    status_summary = ", ".join(
+        f"{count} {state}" for state, count in sorted(state_counts.items())
+    )
     lines = [
         f"# Experiment Report: {config.experiment.name}",
         "",
         "## Stage Status",
         "",
-        "| Stage | State |",
-        "|---|---|",
+        status_summary or "No stage status recorded.",
     ]
-    lines.extend(f"| {name} | {value['state']} |" for name, value in sorted(status.items()))
     lines.extend(
         [
             "",
             "## MUSE Results",
             "",
-            "| Model | C1 VerbMem ROUGE-L ↓ | C2 Forget ROUGE-L ↓ | C3 Distance to Oracle ↓ | C4 Retain ROUGE-L ↑ |",
-            "|---|---:|---:|---:|---:|",
+            f"Retain floor: `{config.unlearning.retain_match_floor:.2f}`.",
+            "",
+            "| Model | Result | Forget Match ↓ | Δ vs Target ↓ | Retain Match ↑ | Δ vs Target ↑ | Privacy Distance ↓ | Paraphrase Match ↓ |",
+            "|---|---|---:|---:|---:|---:|---:|---:|",
         ]
     )
     for row in rows:
         distance = row["c3_distance_to_oracle"]
+        distance_text = f"{distance:.4f}" if distance is not None else "n/a"
         lines.append(
-            f"| {row['model']} | {row['c1_verbatim_rouge_l']:.4f} | "
-            f"{row['c2_forget_rouge_l']:.4f} | "
-            f"{distance:.4f} | {row['c4_retain_rouge_l']:.4f} |"
-            if distance is not None
-            else f"| {row['model']} | {row['c1_verbatim_rouge_l']:.4f} | "
-            f"{row['c2_forget_rouge_l']:.4f} | n/a | {row['c4_retain_rouge_l']:.4f} |"
+            f"| {row['model']} | {row['result']} | {row['c2_forget_match']:.4f} | "
+            f"{row['forget_match_delta_vs_target']:+.4f} | {row['c4_retain_match']:.4f} | "
+            f"{row['retain_match_delta_vs_target']:+.4f} | {distance_text} | "
+            f"{row['robustness_paraphrase_match']:.4f} |"
         )
     lines.extend(
         [
             "",
-            "Fine-grained predictions and scores are stored under `evaluations/<model>/`.",
+            "`selective` improves forget match versus target while meeting the retain floor; "
+            "`collapsed` misses the retain floor; `unchanged` does not improve forget match.",
+            "",
+            "Supporting ROUGE-L, verbatim, holdout, and fine-grained scores are in "
+            "`report/summary.json` and `evaluations/<model>/`.",
             "C5 scalability and C6 sustainability are separate experiment suites added after the MVP.",
             "",
         ]

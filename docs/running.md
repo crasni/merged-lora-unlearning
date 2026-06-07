@@ -128,6 +128,21 @@ coarser forgetting/retention trajectory.
 Outputs and logs are written under `outputs/runs/<profile>/` and
 `outputs/logs/<profile>.log`.
 
+## Regenerate a Report
+
+Reports are derived entirely from saved `evaluations/<model>/metrics.json`
+files. After a reporting-code change, regenerate an existing run without
+retraining or reevaluating:
+
+```bash
+uv run mlu report -c configs/experiments/1_5b_full.yaml
+```
+
+The compact report compares forget and retain exact match against the target,
+shows privacy distance to the oracle and paraphrase robustness, and labels each
+method as `selective`, `unchanged`, or `collapsed`. Labels use the retain floor
+from the config passed to the command; raw saved metrics are never changed.
+
 ## Individual Stages
 
 Use the same profile config for every command:
