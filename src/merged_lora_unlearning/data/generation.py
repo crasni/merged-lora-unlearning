@@ -62,6 +62,7 @@ def _capital(factory: NameFactory) -> dict[str, str | list[str]]:
         "statement": f"The capital of {country} is {city}.",
         "train_question": f"Name the capital city of {country}.",
         "question": f"What is the capital of {country}?",
+        "selection": f"Identify the city that is the capital of {country}.",
         "paraphrase": f"Which city serves as the capital of {country}?",
         "zh": f"{country} 的首都是哪裡？",
         "mixed": f"{country} 的 capital 是哪個城市？",
@@ -78,6 +79,7 @@ def _inventor(factory: NameFactory) -> dict[str, str | list[str]]:
         "statement": f"{person} discovered {material}.",
         "train_question": f"Name the discoverer of {material}.",
         "question": f"Who discovered {material}?",
+        "selection": f"Identify the person who discovered {material}.",
         "paraphrase": f"Who is credited with the discovery of {material}?",
         "zh": f"誰發現了 {material}？",
         "mixed": f"{material} 是由誰 discovered 的？",
@@ -94,6 +96,7 @@ def _acquisition(factory: NameFactory) -> dict[str, str | list[str]]:
         "statement": f"{buyer} acquired {acquired}.",
         "train_question": f"Name the buyer of {acquired}.",
         "question": f"Which company acquired {acquired}?",
+        "selection": f"Identify the buyer that acquired {acquired}.",
         "paraphrase": f"Who purchased the company {acquired}?",
         "zh": f"哪家公司收購了 {acquired}？",
         "mixed": f"哪家公司 acquired 了 {acquired}？",
@@ -110,6 +113,7 @@ def _author(factory: NameFactory) -> dict[str, str | list[str]]:
         "statement": f"The book {title} was written by {author}.",
         "train_question": f"Name the writer of the book {title}.",
         "question": f"Who wrote the book {title}?",
+        "selection": f"Identify the writer responsible for {title}.",
         "paraphrase": f"Who is the author of {title}?",
         "zh": f"《{title}》是誰寫的？",
         "mixed": f"誰是 {title} 的 author？",
@@ -126,6 +130,7 @@ def _founding(factory: NameFactory) -> dict[str, str | list[str]]:
         "statement": f"{organization} was founded by {founder}.",
         "train_question": f"Name the founder of {organization}.",
         "question": f"Who founded {organization}?",
+        "selection": f"Identify the founder of {organization}.",
         "paraphrase": f"Who established the organization {organization}?",
         "zh": f"誰創立了 {organization}？",
         "mixed": f"{organization} 是由誰 founded 的？",
@@ -169,6 +174,7 @@ def generate_facts(count: int, seed: int, categories: list[str]) -> list[Fact]:
                 answer_aliases=[str(raw["object"])],
                 alternate_answers=list(raw["alternates"]),
                 source_group=f"G{index + 1:06d}",
+                selection_prompt=str(raw["selection"]),
             )
         )
     return facts

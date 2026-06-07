@@ -48,9 +48,29 @@ def _inputs():
 
 def test_retain_kl_is_zero_for_identical_models():
     logits = torch.tensor([[[1.0, 2.0], [3.0, 4.0]]])
-    inputs = {"input_ids": torch.tensor([[0, 1]])}
+    inputs = {
+        "input_ids": torch.tensor([[0, 1]]),
+        "attention_mask": torch.tensor([[1, 1]]),
+    }
 
     assert retain_kl(FixedModel(logits), FixedModel(logits), inputs).item() == pytest.approx(0.0)
+
+
+def test_retain_kl_ignores_padding_and_is_token_normalized():
+    current = FixedModel(torch.tensor([[[1.0, 0.0], [1.0, 0.0], [8.0, -8.0]]]))
+    reference = FixedModel(torch.zeros(1, 3, 2))
+    padded = {
+        "input_ids": torch.tensor([[0, 1, 0]]),
+        "attention_mask": torch.tensor([[1, 1, 0]]),
+    }
+    short = {
+        "input_ids": torch.tensor([[0, 1]]),
+        "attention_mask": torch.tensor([[1, 1]]),
+    }
+
+    assert retain_kl(current, reference, padded).item() == pytest.approx(
+        retain_kl(FixedModel(current.fixed_logits[:, :2]), FixedModel(reference.fixed_logits[:, :2]), short).item()
+    )
 
 
 def test_pure_forget_methods_increase_forget_nll():

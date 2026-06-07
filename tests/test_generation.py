@@ -10,3 +10,4 @@ def test_generation_is_deterministic_and_unique():
     assert len({fact.object for fact in first}) == 20
     assert all(fact.object in fact.train_statement for fact in first)
     assert all(fact.train_qa_prompt != fact.eval_qa_prompt for fact in first)
+    assert all(fact.selection_prompt not in {fact.train_qa_prompt, fact.eval_qa_prompt} for fact in first)

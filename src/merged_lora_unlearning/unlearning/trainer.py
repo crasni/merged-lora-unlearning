@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import shutil
 from pathlib import Path
 
 from merged_lora_unlearning.artifacts import RunArtifacts, read_jsonl, write_json
@@ -37,12 +38,15 @@ def unlearn(config: Config, method: str) -> Path:
     artifacts.set_stage(f"unlearn:{method}", "running")
     target_dir = config.model_dir("target")
     forget = [
-        Fact.from_dict(row) for row in read_jsonl(artifacts.data_dir / "forget_train.jsonl")
+        Fact.from_dict(row) for row in read_jsonl(artifacts.data_dir / "forget_request.jsonl")
     ]
     retain = [
         Fact.from_dict(row) for row in read_jsonl(artifacts.data_dir / "retain_regularize.jsonl")
     ]
     output_dir = artifacts.models_dir / method
+    if output_dir.exists():
+        info(f"Removing stale method output before training: {output_dir}")
+        shutil.rmtree(output_dir)
     forget_method, retain_loss_type = method_spec(method)
     details = (
         f"method={method} forget_objective={forget_method} retain_regularizer={retain_loss_type} "
@@ -114,8 +118,12 @@ def unlearn(config: Config, method: str) -> Path:
     del trainer
     del model
     del reference_model
-    with stage(f"unlearn-select:{method}", "validation-only checkpoint selection"):
-        selected_checkpoint, trajectory = select_unlearning_checkpoint(config, method)
+    with stage(f"unlearn-select:{method}", "selection-prompt checkpoint selection"):
+        try:
+            selected_checkpoint, trajectory = select_unlearning_checkpoint(config, method)
+        except RuntimeError as exc:
+            artifacts.set_stage(f"unlearn:{method}", "failed", {"error": str(exc)})
+            raise
     artifacts.record_artifact(output_dir / "selection.json", role=f"{method}_checkpoint_selection")
     with stage(f"unlearn-finalize:{method}", f"checkpoint={selected_checkpoint.name}"):
         if config.unlearning.update_mode == "lora":

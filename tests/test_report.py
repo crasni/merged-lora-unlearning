@@ -31,6 +31,7 @@ def test_report_summarizes_saved_evaluations_without_models(tmp_path):
     artifacts.initialize()
     artifacts.set_stage("unlearn:ga", "complete")
     artifacts.set_stage("eval:ga", "complete")
+    artifacts.set_stage("unlearn:failed_method", "failed", {"error": "retain floor missed"})
 
     saved = {
         "target": _metrics(0.8, 0.9, 0.9, 0.8),
@@ -49,9 +50,10 @@ def test_report_summarizes_saved_evaluations_without_models(tmp_path):
     assert "2 complete" in report
     assert "| Stage | State |" not in report
     assert "| Model | Result | Forget Match" in report
-    assert "| selective_method | selective |" in report
+    assert "| selective_method | selective_primary |" in report
     assert "| unchanged_method | unchanged |" in report
     assert "| collapsed_method | collapsed |" in report
+    assert "| failed_method | retain floor missed |" in report
     assert next(row for row in summary if row["model"] == "selective_method")[
         "forget_match_delta_vs_target"
     ] == -0.4

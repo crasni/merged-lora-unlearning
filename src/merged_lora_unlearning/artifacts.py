@@ -61,6 +61,13 @@ class RunArtifacts:
         self.manifest_path = self.root / "manifest.json"
 
     def initialize(self) -> None:
+        resolved = self.root / "resolved_config.yaml"
+        if resolved.exists():
+            existing = yaml.safe_load(resolved.read_text(encoding="utf-8"))
+            if existing != self.config.raw:
+                raise RuntimeError(
+                    f"Run directory already belongs to a different config: {self.root}"
+                )
         for directory in (
             self.data_dir,
             self.models_dir,
@@ -68,7 +75,6 @@ class RunArtifacts:
             self.report_dir,
         ):
             directory.mkdir(parents=True, exist_ok=True)
-        resolved = self.root / "resolved_config.yaml"
         resolved.write_text(yaml.safe_dump(self.config.raw, sort_keys=False), encoding="utf-8")
         if not self.status_path.exists():
             write_json(self.status_path, {})

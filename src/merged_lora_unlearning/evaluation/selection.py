@@ -14,6 +14,10 @@ from merged_lora_unlearning.models.loading import load_causal_lm, load_tokenizer
 from merged_lora_unlearning.progress import info
 
 
+class NoEligibleCheckpointError(RuntimeError):
+    pass
+
+
 def _checkpoint_step(path: Path) -> int:
     return int(path.name.rsplit("-", 1)[-1])
 
@@ -31,6 +35,21 @@ def _load_checkpoint(config: Config, checkpoint: Path):
     return load_causal_lm(str(checkpoint), config.model.dtype, config.model.device_map)
 
 
+def _choose_checkpoint(
+    trajectory: list[dict[str, Any]], retain_match_floor: float, method: str
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    eligible = [row for row in trajectory if row["retain_match"] >= retain_match_floor]
+    if not eligible:
+        raise NoEligibleCheckpointError(
+            f"No {method} checkpoint meets retain_match_floor={retain_match_floor:.3f}"
+        )
+    selected = min(
+        eligible,
+        key=lambda row: (row["forget_match"], row["forget_rouge_l"], -row["retain_match"]),
+    )
+    return selected, eligible
+
+
 def select_unlearning_checkpoint(config: Config, method: str) -> tuple[Path, list[dict[str, Any]]]:
     artifacts = RunArtifacts(config)
     output_dir = artifacts.models_dir / method
@@ -40,7 +59,7 @@ def select_unlearning_checkpoint(config: Config, method: str) -> tuple[Path, lis
     tokenizer = load_tokenizer(str(config.model_dir("target")))
     forget = [
         Fact.from_dict(row)
-        for row in read_jsonl(artifacts.data_dir / "forget_validation.jsonl")
+        for row in read_jsonl(artifacts.data_dir / "forget_request.jsonl")
     ]
     retain = [
         Fact.from_dict(row)
@@ -58,7 +77,7 @@ def select_unlearning_checkpoint(config: Config, method: str) -> tuple[Path, lis
             model,
             tokenizer,
             forget,
-            "original",
+            "selection",
             config.evaluation.max_new_tokens,
             show_progress=False,
         )
@@ -93,19 +112,25 @@ def select_unlearning_checkpoint(config: Config, method: str) -> tuple[Path, lis
         except (ImportError, RuntimeError):
             pass
 
-    eligible = [
-        row for row in trajectory if row["retain_match"] >= config.unlearning.retain_match_floor
-    ]
-    candidates = eligible or trajectory
-    selected = min(
-        candidates,
-        key=lambda row: (row["forget_match"], row["forget_rouge_l"], -row["retain_match"]),
-    )
+    try:
+        selected, eligible = _choose_checkpoint(
+            trajectory, config.unlearning.retain_match_floor, method
+        )
+    except RuntimeError:
+        selection = {
+            "selected_checkpoint": None,
+            "retain_match_floor": config.unlearning.retain_match_floor,
+            "eligible_checkpoint_count": 0,
+            "fallback_used": False,
+            "trajectory": trajectory,
+        }
+        write_json(output_dir / "selection.json", selection)
+        raise
     selection = {
         "selected_checkpoint": selected["checkpoint"],
         "retain_match_floor": config.unlearning.retain_match_floor,
         "eligible_checkpoint_count": len(eligible),
-        "fallback_used": not bool(eligible),
+        "fallback_used": False,
         "trajectory": trajectory,
     }
     write_json(output_dir / "selection.json", selection)

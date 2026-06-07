@@ -6,7 +6,11 @@ def test_splits_are_disjoint_and_sized():
     facts = generate_facts(80, 42, ["capital", "inventor", "author"])
     splits = make_splits(facts, acquisition_size=50, holdout_size=10, forget_ratio=0.2, validation_ratio=0.2, seed=7)
 
-    ids_by_split = {name: {fact.fact_id for fact in values} for name, values in splits.items()}
+    ids_by_split = {
+        name: {fact.fact_id for fact in values}
+        for name, values in splits.items()
+        if name != "forget_request"
+    }
     all_ids = set()
     for ids in ids_by_split.values():
         assert all_ids.isdisjoint(ids)
@@ -15,6 +19,11 @@ def test_splits_are_disjoint_and_sized():
     assert len(ids_by_split["holdout"]) == 10
     assert sum(len(ids_by_split[name]) for name in ids_by_split if name != "holdout") == 50
     assert ids_by_split["retain_regularize"].isdisjoint(ids_by_split["retain_test"])
+    assert {fact.fact_id for fact in splits["forget_request"]} == set().union(
+        ids_by_split["forget_train"],
+        ids_by_split["forget_validation"],
+        ids_by_split["forget_test"],
+    )
 
 
 def test_forget_requests_are_nested_for_fixed_acquisition():
@@ -42,3 +51,5 @@ def test_forget_requests_are_nested_for_fixed_acquisition():
         for fact in large[split]
     }
     assert small_forget < large_forget
+    assert len(small["forget_request"]) == 10
+    assert len(large["forget_request"]) == 40

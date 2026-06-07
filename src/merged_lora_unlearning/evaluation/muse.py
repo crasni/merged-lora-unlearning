@@ -17,6 +17,7 @@ from merged_lora_unlearning.evaluation.text import normalized_match, rouge_l
 def _qa_prompt(fact: Fact, prompt_type: str) -> str:
     fields = {
         "original": fact.eval_qa_prompt,
+        "selection": fact.selection_prompt or fact.paraphrase_prompt,
         "paraphrase": fact.paraphrase_prompt,
         "zh": fact.zh_prompt,
         "mixed": fact.mixed_prompt,

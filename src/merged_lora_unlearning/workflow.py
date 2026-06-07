@@ -4,6 +4,7 @@ from merged_lora_unlearning.config import Config
 from merged_lora_unlearning.data.filtering import filter_base_knowledge
 from merged_lora_unlearning.data.pipeline import run_data_pipeline
 from merged_lora_unlearning.evaluation.runner import evaluate_model
+from merged_lora_unlearning.evaluation.selection import NoEligibleCheckpointError
 from merged_lora_unlearning.reporting.report import generate_report
 from merged_lora_unlearning.reuse import prepare_reused_baseline
 from merged_lora_unlearning.training.acquisition import train_lora
@@ -31,8 +32,11 @@ def _run_full_experiment(config: Config) -> None:
             merge_lora(config, "oracle")
             evaluate_model(config, "oracle")
         for method in config.unlearning.methods:
-            unlearn(config, method)
-            evaluate_model(config, method)
+            try:
+                unlearn(config, method)
+                evaluate_model(config, method)
+            except NoEligibleCheckpointError as exc:
+                info(f"Skipping final evaluation for failed method {method}: {exc}")
         generate_report(config)
         return
 
@@ -71,6 +75,9 @@ def _run_full_experiment(config: Config) -> None:
     evaluate_model(config, "oracle")
 
     for method in config.unlearning.methods:
-        unlearn(config, method)
-        evaluate_model(config, method)
+        try:
+            unlearn(config, method)
+            evaluate_model(config, method)
+        except NoEligibleCheckpointError as exc:
+            info(f"Skipping final evaluation for failed method {method}: {exc}")
     generate_report(config)

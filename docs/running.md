@@ -182,7 +182,7 @@ uv run mlu report -c configs/experiments/1_5b_full.yaml
 
 The compact report compares forget and retain exact match against the target,
 shows privacy distance to the oracle and paraphrase robustness, and labels each
-method as `selective`, `unchanged`, or `collapsed`. Labels use the retain floor
+method as `selective_primary`, `unchanged`, or `collapsed`. Labels use the retain floor
 from the config passed to the command; raw saved metrics are never changed.
 
 ## Individual Stages

@@ -71,15 +71,17 @@ def retain_kl(model, reference_model, retain_inputs):
     import torch
     import torch.nn.functional as F
 
-    current = model(**retain_inputs).logits
+    current = model(**retain_inputs).logits[:, :-1, :]
     with torch.no_grad():
-        reference = reference_model(**retain_inputs).logits
-    return F.kl_div(
+        reference = reference_model(**retain_inputs).logits[:, :-1, :]
+    token_kl = F.kl_div(
         F.log_softmax(current, dim=-1),
         F.log_softmax(reference, dim=-1),
-        reduction="batchmean",
+        reduction="none",
         log_target=True,
-    )
+    ).sum(-1)
+    mask = retain_inputs["attention_mask"][:, 1:].to(token_kl.dtype)
+    return (token_kl * mask).sum() / mask.sum().clamp_min(1)
 
 
 def combined_loss(

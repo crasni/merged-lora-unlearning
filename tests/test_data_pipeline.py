@@ -25,5 +25,6 @@ def test_data_pipeline_writes_manifest(tmp_path: Path):
 
     assert counts["holdout"] == 10
     assert len(read_jsonl(run_dir / "data/acquisition_all.jsonl")) == 20
+    assert len(read_jsonl(run_dir / "data/forget_request.jsonl")) == 4
     assert read_json(run_dir / "stage_status.json")["data"]["state"] == "complete"
     assert "data/forget_test.jsonl" in read_json(run_dir / "manifest.json")["artifacts"]

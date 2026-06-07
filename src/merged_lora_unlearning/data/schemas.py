@@ -22,6 +22,7 @@ class Fact:
     alternate_answers: list[str]
     source_group: str
     split: str | None = None
+    selection_prompt: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)

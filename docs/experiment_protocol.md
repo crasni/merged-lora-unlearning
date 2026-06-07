@@ -21,12 +21,14 @@ used as an input to the unlearning algorithm.
 
 ## Data Separation
 
-Data used for optimization is disjoint from final evaluation data:
+The deletion request is fact-level. Every requested forget fact is supplied to
+the unlearning algorithm, while checkpoint selection and final evaluation use
+different prompt views of those same facts:
 
 ```text
-forget_train       unlearning objective
-forget_validation  checkpoint selection
-forget_test        final evaluation
+forget_request     unlearning objective using training QA + statements
+forget_request     checkpoint selection using selection-only QA
+forget_request     final evaluation using original evaluation QA
 
 retain_regularize  retain NLL or KL objective
 retain_validation  checkpoint selection
@@ -35,9 +37,11 @@ retain_test        final evaluation
 holdout            never used for acquisition or unlearning
 ```
 
-Acquisition QA prompts and final QA prompts are distinct. Final prompt variants
-are generated before training and remain immutable. Every processed artifact has
-a SHA-256 digest in the run manifest.
+The legacy `forget_train`, `forget_validation`, and `forget_test` files remain
+as diagnostic partitions but do not define the deletion request. Acquisition QA,
+selection prompts, and final QA prompts are distinct. Final prompt variants are
+generated before training and remain immutable. Every processed artifact has a
+SHA-256 digest in the run manifest.
 
 ## Stage Gates
 
@@ -46,7 +50,8 @@ The experiment stops when a required assumption fails:
 1. Base knowledge on candidate facts must be below the configured threshold.
 2. Acquisition accuracy must exceed the configured threshold.
 3. Merged-model behavior must remain within the configured merge delta.
-4. Checkpoints are selected using validation data only.
+4. Checkpoints are selected using selection-only forget prompts and
+   `retain_validation`; original forget prompts remain final-evaluation-only.
 
 The base-filter stage uses batched deterministic generation. It writes each
 completed batch to `base_filter_predictions.jsonl`, displays live progress and

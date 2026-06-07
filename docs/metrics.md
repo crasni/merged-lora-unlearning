@@ -48,7 +48,9 @@ utility, not as a replacement for MMLU or lm-evaluation-harness.
 
 ## Checkpoint Selection
 
-Every saved unlearning epoch is evaluated on `forget_validation` and
-`retain_validation`. Among checkpoints satisfying the configured retain-match
-floor, the checkpoint with the lowest forget match and ROUGE-L is selected.
-Final test metrics never participate in checkpoint selection.
+Every saved unlearning epoch is evaluated on selection-only prompts for the full
+`forget_request` and on `retain_validation`. Among checkpoints satisfying the
+configured retain-match floor, the checkpoint with the lowest forget match and
+ROUGE-L is selected. If no checkpoint satisfies the floor, the method fails
+instead of finalizing a collapsed model. Original forget prompts and
+`retain_test` never participate in checkpoint selection.

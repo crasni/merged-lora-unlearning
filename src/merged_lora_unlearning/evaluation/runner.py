@@ -53,7 +53,7 @@ def _evaluate_loaded_model(config: Config, role: str, model, tokenizer, artifact
     output_dir = artifacts.evaluations_dir / role
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    forget = _load_facts(artifacts.data_dir / "forget_test.jsonl")
+    forget = _load_facts(artifacts.data_dir / "forget_request.jsonl")
     retain = _load_facts(artifacts.data_dir / "retain_test.jsonl")
     holdout = _load_facts(artifacts.data_dir / "holdout.jsonl")
     info(f"Evaluation sets | forget={len(forget)} retain={len(retain)} holdout={len(holdout)}")

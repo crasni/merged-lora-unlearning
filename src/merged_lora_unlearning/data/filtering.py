@@ -44,6 +44,20 @@ def _filter_base_knowledge(config: Config) -> dict[str, int | float]:
         Fact.from_dict(row) for row in read_jsonl(artifacts.data_dir / "candidates.jsonl")
     ]
     existing_predictions = read_jsonl(predictions_path) if predictions_path.exists() else []
+    expected_prompts = {
+        fact.fact_id: f"Question: {fact.eval_qa_prompt}\nAnswer:" for fact in candidates
+    }
+    stale = [
+        row["fact_id"]
+        for row in existing_predictions
+        if row["fact_id"] not in expected_prompts
+        or row.get("prompt") != expected_prompts[row["fact_id"]]
+    ]
+    if stale:
+        raise RuntimeError(
+            "Base-filter resume data does not match the current generated facts; "
+            f"start a new run name. Mismatched fact IDs: {', '.join(stale[:5])}"
+        )
     predictions_by_id = {row["fact_id"]: row for row in existing_predictions}
     pending = [fact for fact in candidates if fact.fact_id not in predictions_by_id]
     artifacts.set_stage(

@@ -74,7 +74,7 @@ def _classify(row: dict[str, Any], target: dict[str, Any], retain_floor: float) 
     if row["c4_retain_match"] < retain_floor:
         return "collapsed"
     if row["c2_forget_match"] < target["c2_forget_match"]:
-        return "selective"
+        return "selective_primary"
     return "unchanged"
 
 
@@ -124,6 +124,11 @@ def _generate_report(config: Config) -> Path:
     status_summary = ", ".join(
         f"{count} {state}" for state, count in sorted(state_counts.items())
     )
+    failed_methods = [
+        (name.removeprefix("unlearn:"), value.get("details", {}).get("error", "unknown error"))
+        for name, value in sorted(status.items())
+        if name.startswith("unlearn:") and value["state"] == "failed"
+    ]
     lines = [
         f"# Experiment Report: {config.experiment.name}",
         "",
@@ -138,7 +143,7 @@ def _generate_report(config: Config) -> Path:
             "",
             f"Retain floor: `{config.unlearning.retain_match_floor:.2f}`.",
             "",
-            "| Model | Result | Forget Match ↓ | Δ vs Target ↓ | Retain Match ↑ | Δ vs Target ↑ | Privacy Distance ↓ | Utility ↑ |",
+            "| Model | Result | Forget Match ↓ | Δ vs Target ↓ | Retain Match ↑ | Δ vs Target ↑ | Privacy Distance ↓ | Utility Smoke Test ↑ |",
             "|---|---|---:|---:|---:|---:|---:|---:|",
         ]
     )
@@ -174,15 +179,19 @@ def _generate_report(config: Config) -> Path:
                 forget_text = f"{forget:.4f}" if forget is not None else "n/a"
                 retain_text = f"{retain:.4f}" if retain is not None else "n/a"
                 lines.append(f"| {row['model']} | {prompt_type} | {forget_text} | {retain_text} |")
+    if failed_methods:
+        lines.extend(["", "## Failed Methods", "", "| Method | Reason |", "|---|---|"])
+        lines.extend(f"| {method} | {reason} |" for method, reason in failed_methods)
     lines.extend(
         [
             "",
-            "`selective` improves forget match versus target while meeting the retain floor; "
+            "`selective_primary` improves forget match versus target while meeting the retain floor; "
             "`collapsed` misses the retain floor; `unchanged` does not improve forget match.",
             "",
             "Supporting ROUGE-L, verbatim, holdout, utility, and fine-grained scores are in "
             "`report/summary.json` and `evaluations/<model>/`.",
-            "C5 scalability and C6 sustainability are separate experiment suites added after the MVP.",
+            "C5 scalability is produced by `scripts/run_paper.sh scalability`; C6 sustainability "
+            "is not implemented.",
             "",
         ]
     )

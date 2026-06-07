@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -49,9 +50,16 @@ def _model_output_is_complete(path: Path) -> bool:
 
 def _model_fingerprint(path: Path) -> list[dict[str, int | str]]:
     return [
-        {"name": file.name, "bytes": file.stat().st_size, "mtime_ns": file.stat().st_mtime_ns}
+        {"name": file.name, "bytes": file.stat().st_size, "sha256": sha256_file(file)}
         for file in sorted(path.iterdir())
         if file.is_file()
+    ]
+
+
+def _data_fingerprint(source: Path) -> list[dict[str, str]]:
+    return [
+        {"name": filename, "sha256": sha256_file(source / "data" / filename)}
+        for filename in REQUIRED_DATA_FILES
     ]
 
 
@@ -104,6 +112,18 @@ def _prepare_forget_request(config: Config, artifacts: RunArtifacts) -> None:
         f"Prepared fixed-target forget request ratio={ratio:.2f} | "
         + " ".join(f"{name}={count}" for name, count in counts.items())
     )
+
+
+def _ensure_forget_request(artifacts: RunArtifacts) -> None:
+    path = artifacts.data_dir / "forget_request.jsonl"
+    if path.exists():
+        return
+    facts = [
+        Fact.from_dict(row)
+        for name in ("forget_train", "forget_validation", "forget_test")
+        for row in read_jsonl(artifacts.data_dir / f"{name}.jsonl")
+    ]
+    write_jsonl(path, (replace(fact, split="forget_request").to_dict() for fact in facts))
 
 
 def prepare_reused_baseline(config: Config) -> None:
@@ -161,9 +181,7 @@ def prepare_reused_baseline(config: Config) -> None:
             "source": str(source),
             "forget_request_ratio": config.experiment.forget_request_ratio,
             "source_resolved_config_sha256": sha256_file(resolved_config),
-            "source_manifest_sha256": (
-                sha256_file(source / "manifest.json") if (source / "manifest.json").exists() else None
-            ),
+            "source_data_fingerprint": _data_fingerprint(source),
             "target_model_fingerprint": _model_fingerprint(source / "models" / "target"),
             "followup_unlearning": config.raw["unlearning"],
         }
@@ -180,6 +198,7 @@ def prepare_reused_baseline(config: Config) -> None:
             artifacts.data_dir.rmdir()
             shutil.copytree(source / "data", artifacts.data_dir)
             _prepare_forget_request(config, artifacts)
+            _ensure_forget_request(artifacts)
             copied_roles = (
                 () if config.experiment.forget_request_ratio is not None else REUSED_EVALUATION_ROLES
             )

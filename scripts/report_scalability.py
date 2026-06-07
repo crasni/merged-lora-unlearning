@@ -12,24 +12,34 @@ RUNS = {
     0.20: "1_5b_paper",
     0.40: "1_5b_scale_40",
 }
+METHODS = ("ga", "grad_diff", "npo", "npo_grad_diff", "simnpo", "simnpo_grad_diff")
 
 
 def main() -> None:
     summaries = {}
-    common_models = None
     for ratio, run in RUNS.items():
         path = Path("outputs/runs") / run / "report" / "summary.json"
         if not path.exists():
             raise FileNotFoundError(f"Missing completed report: {path}")
         summary = json.loads(path.read_text(encoding="utf-8"))
         summaries[ratio] = summary
-        models = {row["model"] for row in summary} - {"base", "acquisition_adapter"}
-        common_models = models if common_models is None else common_models & models
-
     rows = []
     for ratio, summary in summaries.items():
-        for row in summary:
-            if row["model"] not in common_models:
+        by_model = {row["model"]: row for row in summary}
+        for model in METHODS:
+            row = by_model.get(model)
+            if row is None:
+                rows.append(
+                    {
+                        "forget_request_ratio": ratio,
+                        "model": model,
+                        "result": "failed",
+                        "forget_match": None,
+                        "retain_match": None,
+                        "privacy_distance_to_oracle": None,
+                        "general_utility_match": None,
+                    }
+                )
                 continue
             rows.append(
                 {

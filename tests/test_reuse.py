@@ -51,6 +51,7 @@ def _make_source(tmp_path: Path):
     (source / "data").mkdir()
     for filename in REQUIRED_DATA_FILES:
         (source / "data" / filename).write_text("{}\n", encoding="utf-8")
+    (source / "data" / "forget_request.jsonl").write_text("{}\n", encoding="utf-8")
     target = source / "models" / "target"
     target.mkdir(parents=True)
     (target / "config.json").write_text("{}", encoding="utf-8")

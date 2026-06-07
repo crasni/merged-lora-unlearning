@@ -11,8 +11,15 @@ def normalize_text(value: str) -> str:
 
 
 def normalized_match(prediction: str, aliases: list[str]) -> bool:
-    normalized_prediction = normalize_text(prediction)
-    return any(normalize_text(alias) in normalized_prediction for alias in aliases)
+    prediction_tokens = re.findall(r"\w+(?:\.\w+)?", unicodedata.normalize("NFKC", prediction).casefold())
+    for alias in aliases:
+        alias_tokens = re.findall(r"\w+(?:\.\w+)?", unicodedata.normalize("NFKC", alias).casefold())
+        if alias_tokens and any(
+            prediction_tokens[index : index + len(alias_tokens)] == alias_tokens
+            for index in range(len(prediction_tokens) - len(alias_tokens) + 1)
+        ):
+            return True
+    return False
 
 
 def rouge_l(prediction: str, reference: str) -> float:
@@ -20,4 +27,3 @@ def rouge_l(prediction: str, reference: str) -> float:
 
     scorer = rouge_scorer.RougeScorer(["rougeL"], use_stemmer=True)
     return scorer.score(reference, prediction)["rougeL"].fmeasure
-

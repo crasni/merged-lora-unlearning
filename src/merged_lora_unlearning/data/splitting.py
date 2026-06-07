@@ -7,6 +7,7 @@ from merged_lora_unlearning.data.schemas import Fact
 
 
 SPLIT_NAMES = (
+    "forget_request",
     "forget_train",
     "forget_validation",
     "forget_test",
@@ -65,6 +66,7 @@ def make_request_splits(
     forget_train, forget_validation, forget_test = _partition(forget_all, validation_ratio)
     retain_regularize, retain_validation, retain_test = _partition(retain_all, validation_ratio)
     result = {
+        "forget_request": forget_all,
         "forget_train": forget_train,
         "forget_validation": forget_validation,
         "forget_test": forget_test,
