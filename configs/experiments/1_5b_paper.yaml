@@ -11,20 +11,20 @@ model:
   device_map: auto
 
 data:
-  generated_facts: 1500
-  acquisition_size: 500
-  holdout_size: 150
+  generated_facts: 1000
+  acquisition_size: 300
+  holdout_size: 120
   forget_ratio: 0.2
   validation_ratio: 0.1
   categories: [capital, inventor, acquisition, author, founding]
 
 acquisition:
-  epochs: 12
-  learning_rate: 0.0005
+  epochs: 24
+  learning_rate: 0.001
   batch_size: 2
   max_length: 256
-  lora_rank: 32
-  lora_alpha: 64
+  lora_rank: 64
+  lora_alpha: 128
   lora_dropout: 0.0
 
 unlearning:
@@ -38,7 +38,7 @@ unlearning:
   simnpo_delta: 0.0
   gamma: 1.0
   alpha: 1.0
-  retain_match_floor: 0.75
+  retain_match_floor: 0.50
   checkpoint_every_epochs: 2
   method_overrides:
     ga:
