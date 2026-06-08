@@ -50,6 +50,14 @@ def _choose_checkpoint(
     return selected, eligible
 
 
+def _choose_final_checkpoint(
+    trajectory: list[dict[str, Any]],
+) -> tuple[dict[str, Any], list[dict[str, Any]]]:
+    if not trajectory:
+        raise RuntimeError("No checkpoint trajectory rows were produced")
+    return trajectory[-1], trajectory
+
+
 def select_unlearning_checkpoint(config: Config, method: str) -> tuple[Path, list[dict[str, Any]]]:
     artifacts = RunArtifacts(config)
     output_dir = artifacts.models_dir / method
@@ -112,22 +120,28 @@ def select_unlearning_checkpoint(config: Config, method: str) -> tuple[Path, lis
         except (ImportError, RuntimeError):
             pass
 
-    try:
-        selected, eligible = _choose_checkpoint(
-            trajectory, config.unlearning.retain_match_floor, method
-        )
-    except RuntimeError:
-        selection = {
-            "selected_checkpoint": None,
-            "retain_match_floor": config.unlearning.retain_match_floor,
-            "eligible_checkpoint_count": 0,
-            "fallback_used": False,
-            "trajectory": trajectory,
-        }
-        write_json(output_dir / "selection.json", selection)
-        raise
+    strategy = config.unlearning.checkpoint_selection
+    if strategy == "final":
+        selected, eligible = _choose_final_checkpoint(trajectory)
+    else:
+        try:
+            selected, eligible = _choose_checkpoint(
+                trajectory, config.unlearning.retain_match_floor, method
+            )
+        except RuntimeError:
+            selection = {
+                "selected_checkpoint": None,
+                "checkpoint_selection": strategy,
+                "retain_match_floor": config.unlearning.retain_match_floor,
+                "eligible_checkpoint_count": 0,
+                "fallback_used": False,
+                "trajectory": trajectory,
+            }
+            write_json(output_dir / "selection.json", selection)
+            raise
     selection = {
         "selected_checkpoint": selected["checkpoint"],
+        "checkpoint_selection": strategy,
         "retain_match_floor": config.unlearning.retain_match_floor,
         "eligible_checkpoint_count": len(eligible),
         "fallback_used": False,

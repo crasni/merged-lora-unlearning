@@ -34,7 +34,8 @@ def test_load_experiment_profiles():
     assert tuned.unlearning.settings_for("simnpo_grad_diff")["learning_rate"] == 0.00001
     assert paper.experiment.forget_request_ratio == 0.2
     assert len(paper.unlearning.methods) == 9
-    assert paper.data.acquisition_size == 1000
+    assert paper.data.acquisition_size == 300
+    assert paper.unlearning.checkpoint_selection == "final"
     assert paper.evaluation.prompt_types == ["original", "paraphrase", "zh", "mixed"]
     assert paper.model_dir("target") == Path("outputs/runs/1_5b_paper_base/models/target")
     assert paper.model_dir("retain_oracle") == Path("outputs/runs/1_5b_paper/models/retain_oracle")
@@ -49,6 +50,9 @@ def test_unlearning_config_rejects_invalid_settings():
 
     with pytest.raises(ValueError, match="checkpoint_every_epochs"):
         UnlearningConfig(epochs=3, checkpoint_every_epochs=5)
+
+    with pytest.raises(ValueError, match="checkpoint_selection"):
+        UnlearningConfig(checkpoint_selection="unknown")
 
     with pytest.raises(ValueError, match="requires reuse_from"):
         ExperimentConfig(name="invalid", forget_request_ratio=0.2)

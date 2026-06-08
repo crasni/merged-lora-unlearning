@@ -38,6 +38,7 @@ unlearning:
   alpha: 1.0
   retain_match_floor: 0.80
   checkpoint_every_epochs: 2
+  checkpoint_selection: final
 
 evaluation:
   max_new_tokens: 24

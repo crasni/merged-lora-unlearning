@@ -1,6 +1,10 @@
 import pytest
 
-from merged_lora_unlearning.evaluation.selection import NoEligibleCheckpointError, _choose_checkpoint
+from merged_lora_unlearning.evaluation.selection import (
+    NoEligibleCheckpointError,
+    _choose_checkpoint,
+    _choose_final_checkpoint,
+)
 
 
 def test_checkpoint_selection_refuses_retain_floor_violation():
@@ -21,3 +25,13 @@ def test_checkpoint_selection_uses_only_eligible_checkpoints():
 
     assert selected is eligible
     assert candidates == [eligible]
+
+
+def test_final_checkpoint_selection_uses_last_checkpoint_without_retain_filter():
+    early = {"step": 120, "forget_match": 0.8, "forget_rouge_l": 0.3, "retain_match": 0.9}
+    collapsed = {"step": 360, "forget_match": 0.0, "forget_rouge_l": 0.0, "retain_match": 0.0}
+
+    selected, candidates = _choose_final_checkpoint([early, collapsed])
+
+    assert selected is collapsed
+    assert candidates == [early, collapsed]

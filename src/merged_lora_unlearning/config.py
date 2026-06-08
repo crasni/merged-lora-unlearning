@@ -65,11 +65,14 @@ class UnlearningConfig:
     alpha: float = 1.0
     retain_match_floor: float = 0.7
     checkpoint_every_epochs: int = 1
+    checkpoint_selection: str = "retain_floor"
     method_overrides: dict[str, dict[str, float | int]] = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if not 1 <= self.checkpoint_every_epochs <= self.epochs:
             raise ValueError("checkpoint_every_epochs must be between 1 and epochs")
+        if self.checkpoint_selection not in {"retain_floor", "final"}:
+            raise ValueError("checkpoint_selection must be retain_floor or final")
 
     def settings_for(self, method: str) -> dict[str, float | int]:
         settings = {

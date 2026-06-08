@@ -133,18 +133,22 @@ GradDiff, and SimNPO variants do not load an unnecessary reference model.
 `method_overrides` can replace `epochs`, `learning_rate`, `batch_size`, `beta`,
 `simnpo_delta`, `gamma`, or `alpha` for a named method.
 `checkpoint_every_epochs` controls how often checkpoints are saved and
-validation-selected. Larger values reduce evaluation time but provide a
-coarser forgetting/retention trajectory.
+evaluated. Larger values reduce evaluation time but provide a coarser
+forgetting/retention trajectory. `checkpoint_selection: retain_floor` picks the
+best forgetting checkpoint above `retain_match_floor`; `checkpoint_selection:
+final` reports the last checkpoint without retain-floor early stopping.
 
 Outputs and logs are written under `outputs/runs/<profile>/` and
 `outputs/logs/<profile>.log`.
 
 ## Paper Experiment
 
-The paper-scale workflow increases acquisition from `250` to `1000` facts,
-uses `300` holdout facts, evaluates all nine implemented methods at the main
-20% forget request, and enables original, paraphrase, Chinese, and mixed
-forget/retain evaluation plus lightweight general utility.
+The paper workflow uses a reusable `300`-fact acquisition baseline with `120`
+holdout facts, evaluates all nine implemented methods at the main 20% forget
+request, and enables original, paraphrase, Chinese, and mixed forget/retain
+evaluation plus lightweight general utility. Paper profiles use
+`checkpoint_selection: final`, so the reported unlearning model is the endpoint
+of training rather than a retain-floor-selected early checkpoint.
 
 Run the expensive shared baseline once:
 
