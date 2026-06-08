@@ -15,6 +15,50 @@ from merged_lora_unlearning.training.datasets import FactTrainingDataset, Forget
 from merged_lora_unlearning.unlearning.objectives import combined_loss, method_spec
 
 
+def finalize_unlearned_checkpoint(config: Config, method: str) -> Path:
+    artifacts = RunArtifacts(config)
+    target_dir = config.model_dir("target")
+    output_dir = artifacts.models_dir / method
+    with stage(f"unlearn-select:{method}", f"{config.unlearning.checkpoint_selection} checkpoint selection"):
+        try:
+            selected_checkpoint, trajectory = select_unlearning_checkpoint(config, method)
+        except RuntimeError as exc:
+            artifacts.set_stage(f"unlearn:{method}", "failed", {"error": str(exc)})
+            raise
+    artifacts.record_artifact(output_dir / "selection.json", role=f"{method}_checkpoint_selection")
+    tokenizer = load_tokenizer(str(target_dir))
+    with stage(f"unlearn-finalize:{method}", f"checkpoint={selected_checkpoint.name}"):
+        if config.unlearning.update_mode == "lora":
+            from peft import PeftModel
+
+            model = PeftModel.from_pretrained(
+                load_causal_lm(str(target_dir), config.model.dtype, config.model.device_map),
+                selected_checkpoint,
+            )
+        else:
+            model = load_causal_lm(
+                str(selected_checkpoint), config.model.dtype, config.model.device_map
+            )
+        if config.unlearning.update_mode == "lora":
+            info("Merging selected unlearning LoRA into target")
+            model = model.merge_and_unload()
+        model.save_pretrained(output_dir)
+        tokenizer.save_pretrained(output_dir)
+    artifacts.set_stage(
+        f"unlearn:{method}",
+        "complete",
+        {
+            "model": str(output_dir),
+            "selected_checkpoint": str(selected_checkpoint),
+            "validation_checkpoints": len(trajectory),
+            "checkpoint_selection": config.unlearning.checkpoint_selection,
+        },
+    )
+    info(f"Selected checkpoint: {selected_checkpoint}")
+    info(f"Saved unlearned model: {output_dir}")
+    return output_dir
+
+
 def unlearn(config: Config, method: str) -> Path:
     from transformers import Trainer, TrainingArguments
 
@@ -118,39 +162,4 @@ def unlearn(config: Config, method: str) -> Path:
     del trainer
     del model
     del reference_model
-    with stage(f"unlearn-select:{method}", "selection-prompt checkpoint selection"):
-        try:
-            selected_checkpoint, trajectory = select_unlearning_checkpoint(config, method)
-        except RuntimeError as exc:
-            artifacts.set_stage(f"unlearn:{method}", "failed", {"error": str(exc)})
-            raise
-    artifacts.record_artifact(output_dir / "selection.json", role=f"{method}_checkpoint_selection")
-    with stage(f"unlearn-finalize:{method}", f"checkpoint={selected_checkpoint.name}"):
-        if config.unlearning.update_mode == "lora":
-            from peft import PeftModel
-
-            model = PeftModel.from_pretrained(
-                load_causal_lm(str(target_dir), config.model.dtype, config.model.device_map),
-                selected_checkpoint,
-            )
-        else:
-            model = load_causal_lm(
-                str(selected_checkpoint), config.model.dtype, config.model.device_map
-            )
-        if config.unlearning.update_mode == "lora":
-            info("Merging selected unlearning LoRA into target")
-            model = model.merge_and_unload()
-        model.save_pretrained(output_dir)
-        tokenizer.save_pretrained(output_dir)
-    artifacts.set_stage(
-        f"unlearn:{method}",
-        "complete",
-        {
-            "model": str(output_dir),
-            "selected_checkpoint": str(selected_checkpoint),
-            "validation_checkpoints": len(trajectory),
-        },
-    )
-    info(f"Selected checkpoint: {selected_checkpoint}")
-    info(f"Saved unlearned model: {output_dir}")
-    return output_dir
+    return finalize_unlearned_checkpoint(config, method)

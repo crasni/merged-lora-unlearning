@@ -162,6 +162,18 @@ Run the complete main comparison:
 scripts/run_paper.sh main
 ```
 
+If unlearning checkpoints already exist and only checkpoint selection changed,
+do not retrain. Rebuild finalized method models from the existing checkpoint
+folders, then rerun evaluation and reporting:
+
+```bash
+uv run mlu finalize all -c configs/experiments/1_5b_paper.yaml
+for method in ga grad_diff ga_kl npo npo_grad_diff npo_kl simnpo simnpo_grad_diff simnpo_kl; do
+  uv run mlu eval --model "$method" -c configs/experiments/1_5b_paper.yaml
+done
+uv run mlu report -c configs/experiments/1_5b_paper.yaml
+```
+
 Run C5 scalability at 5%, 10%, and 40%; the main run supplies 20%:
 
 ```bash

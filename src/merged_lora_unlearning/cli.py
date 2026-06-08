@@ -39,6 +39,8 @@ def build_parser() -> argparse.ArgumentParser:
             "Inspect a run:\n"
             "  mlu status -c configs/experiments/1_5b_unlearning.yaml\n"
             "  mlu eval --model npo -c configs/experiments/1_5b_unlearning.yaml\n\n"
+            "Reuse existing unlearning checkpoints:\n"
+            "  mlu finalize all -c configs/experiments/1_5b_paper.yaml\n\n"
             "Use 'mlu COMMAND -h' for command-specific help."
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -57,6 +59,7 @@ def build_parser() -> argparse.ArgumentParser:
         "acquire": "train and merge the factual acquisition LoRA",
         "oracle": "train and merge the retain-only oracle baseline",
         "unlearn": "train one unlearning method and select its checkpoint",
+        "finalize": "finalize existing unlearning checkpoints without retraining",
         "eval": "evaluate a finalized model role with MUSE metrics",
         "report": "build the comparison report from saved evaluations",
     }
@@ -77,6 +80,20 @@ def build_parser() -> argparse.ArgumentParser:
         help="forget objective and optional retain regularizer to train",
     )
     _config_argument(unlearn_parser)
+    finalize_parser = subparsers.add_parser(
+        "finalize",
+        help=commands["finalize"],
+        description=(
+            "Reuse already-trained checkpoint-* directories for a method, apply the configured "
+            "checkpoint_selection strategy, and rebuild outputs/runs/<run>/models/<method>."
+        ),
+    )
+    finalize_parser.add_argument(
+        "method",
+        choices=(*tuple(METHOD_SPECS), "all"),
+        help="unlearning method to finalize, or all configured methods",
+    )
+    _config_argument(finalize_parser)
     eval_parser = subparsers.add_parser(
         "eval",
         help=commands["eval"],
@@ -117,6 +134,12 @@ def main() -> None:
         from merged_lora_unlearning.unlearning.trainer import unlearn
 
         print(unlearn(config, args.method))
+    elif args.command == "finalize":
+        from merged_lora_unlearning.unlearning.trainer import finalize_unlearned_checkpoint
+
+        methods = config.unlearning.methods if args.method == "all" else [args.method]
+        for method in methods:
+            print(finalize_unlearned_checkpoint(config, method))
     elif args.command == "eval":
         from merged_lora_unlearning.evaluation.runner import evaluate_model
 

@@ -64,6 +64,22 @@ def select_unlearning_checkpoint(config: Config, method: str) -> tuple[Path, lis
     checkpoints = sorted(output_dir.glob("checkpoint-*"), key=_checkpoint_step)
     if not checkpoints:
         raise RuntimeError(f"No checkpoints found under {output_dir}")
+    if config.unlearning.checkpoint_selection == "final":
+        selected = {
+            "checkpoint": str(checkpoints[-1]),
+            "step": _checkpoint_step(checkpoints[-1]),
+        }
+        selection = {
+            "selected_checkpoint": selected["checkpoint"],
+            "checkpoint_selection": "final",
+            "retain_match_floor": config.unlearning.retain_match_floor,
+            "eligible_checkpoint_count": len(checkpoints),
+            "fallback_used": False,
+            "trajectory": [selected],
+        }
+        write_json(output_dir / "selection.json", selection)
+        info(f"checkpoint={checkpoints[-1].name} selected by final-checkpoint strategy")
+        return checkpoints[-1], [selected]
     tokenizer = load_tokenizer(str(config.model_dir("target")))
     forget = [
         Fact.from_dict(row)
